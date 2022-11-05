@@ -8,7 +8,7 @@ from sklearn.decomposition import PCA
 
 from sklearn.ensemble import GradientBoostingRegressor
 
-from hyperoptimize import graphical_optimizer
+from hyperoptimize import GraphicalOptimizer
 
 # Loading data
 
@@ -77,12 +77,12 @@ hyperparameters = {'n_estimators': [5000, 6000],  # Upper and lower bounds
 
 # Performing optimization
 
-opt = graphical_optimizer(ModelFunction=modelFunction,
-                          PerformanceFunction=performanceFunction,
-                          PredictionFunction=predictionFunction,
-                          hyperparameters=hyperparameters,
-                          optimizer="bayesian",
-                          maxNumCombinations=100,
-                          crossValidation=30)
+opt = GraphicalOptimizer(ModelFunction=modelFunction,
+                         PerformanceFunction=performanceFunction,
+                         PredictionFunction=predictionFunction,
+                         hyperparameters=hyperparameters,
+                         optimizer="bayesian",
+                         maxNumCombinations=5,
+                         crossValidation=2)
 
 opt.fit(X_train, y_train)
