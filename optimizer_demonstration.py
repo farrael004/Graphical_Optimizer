@@ -82,7 +82,8 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PredictionFunction=predictionFunction,
                          hyperparameters=hyperparameters,
                          optimizer="bayesian",
-                         maxNumCombinations=5,
-                         crossValidation=2)
+                         maxNumCombinations=100,
+                         crossValidation=2,
+                         parallelCombinations=3)
 
 opt.fit(X_train, y_train)

@@ -35,30 +35,12 @@ def print_status(self):  # Shows the parameters used and accuracy attained of th
 # Custom Estimator wrapper
 
 class WrapperEstimator(BaseEstimator):
-    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, learning_rate=0.1, max_depth=4,
-                 max_features='sqrt'):
-        hyperparameters = {'n_estimators': [5000, 6000],  # Upper and lower bounds
-                           'learning_rate': [0.001, 0.01],  # Upper and lower bounds
-                           'max_depth': [2, 6],  # Upper and lower bounds
-                           'max_features': ['sqrt', 'log2'],  # Categorical bounds
-                           'min_samples_leaf': [1, 21],  # Upper and lower bounds
-                           'min_samples_split': [1, 16], }  # Upper and lower bounds
-
-        self.learning_rate = learning_rate
-        self.max_depth = max_depth
-        self.max_features = max_features
+    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction):
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
         self.PerformanceFunction = PerformanceFunction
-        self.variables = hyperparameters
 
     def fit(self, X, y):
-        self.params = {
-            'learning_rate': self.learning_rate,
-            'max_depth': self.max_depth,
-            'max_features': self.max_features
-        }
-
         X, y = check_X_y(X, y, accept_sparse=True)
 
         self.model = self.ModelFunction(self.params, X, y)
@@ -74,11 +56,14 @@ class WrapperEstimator(BaseEstimator):
         return prediction
 
     def score(self, X, y, sample_weight=None):
-        model = self.model
         y_pred = self.predict(X)
         self.scores = self.PerformanceFunction(y, y_pred)
         print_status(self)
         return self.scores['Adjusted R^2 Score']
+    
+    def set_params(self, **params):
+        self.params = params
+        return self
 
 
 class App(Frame, threading.Thread):
@@ -128,6 +113,7 @@ class GraphicalOptimizer:
                  maxNumCombinations=100,  # Maximum number of combinations
                  crossValidation=30,  # Splits train data and trains the same model on each split for calculating agregate performance
                  numberInParallel=-1,
+                 parallelCombinations=3,
                  seed=0):
 
         self.ModelFunction = ModelFunction
@@ -138,6 +124,7 @@ class GraphicalOptimizer:
         self.maxNumCombinations = maxNumCombinations
         self.crossValidation = crossValidation
         self.numberInParallel = numberInParallel
+        self.parallelCombinations = parallelCombinations
         self.seed = seed
 
         if (ModelFunction is None or
@@ -146,7 +133,17 @@ class GraphicalOptimizer:
                 hyperparameters is None):
             raise Exception(
                 'You must define the model function, prediction function, performance function and the '
-                'hyperparameters to be used')
+                'hyperparameters to be used.')
+            
+        #if (type(ModelFunction) is not function):
+            #raise TypeError("Model function is not of type function.")
+        #if (type(PredictionFunction) is not function):
+            #raise TypeError("Prediction function is not of type function.")
+        #if (type(PerformanceFunction) is not function):
+            #raise TypeError("Performance function is not of type function.")
+        
+        if type(self.hyperparameters) is not dict:
+            raise TypeError("Hyperparameters must be a single dictionary where the keys will name the parameters.")
             
         self.results=None
 
@@ -155,22 +152,37 @@ class GraphicalOptimizer:
     ## Bayesian
 
     def BayesianOpt(self, X_train, y_train):
+        hyperparameters = {}
+        for k in self.hyperparameters:
+            v = self.hyperparameters[k]
+
+            if type(v) is not list:
+                raise TypeError("Hyperparameters must be in the form of a python list with at least one object.")
+            
+            if type(v[0]) is not float and type(v[0]) is not int:
+                hyperparameters[k] = Categorical([item for item in v])
+                continue
+            
+            if len(v) != 2:
+                raise Exception("Hyperparameters of float or int type must be in the form of [lower_bound, higher_bound].")
+            
+            if type(v[0]) is float or type(v[-1]) is float:
+                hyperparameters[k] = Real(v[0], v[-1])
+            else:
+                hyperparameters[k] = Integer(v[0], v[-1])
+
         bayReg = BayesSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction),
-            {
-                'learning_rate': Real(0.001, 0.01),
-                'max_depth': Integer(2, 6),
-                'max_features': Categorical(['sqrt', 'log2']),
-            },
+            hyperparameters,
             random_state=self.seed,
             verbose=0,
             n_iter=self.maxNumCombinations,
             cv=self.crossValidation,
             n_jobs=self.numberInParallel,
-            n_points=2
+            n_points=self.parallelCombinations
         )
 
-        self.results = bayReg.fit(X_train, y_train)  # Included callback function that is called after every iteration
+        self.results = bayReg.fit(X_train, y_train)
 
         try:
             app.table.redraw()
@@ -193,7 +205,7 @@ class GraphicalOptimizer:
             n_jobs=self.numberInParallel,
         )
 
-        self.results = grid.fit(X_train, y_train)  # Included callback function that is called after every iteration
+        self.results = grid.fit(X_train, y_train)
 
         try:
             app.table.redraw()
@@ -218,7 +230,7 @@ class GraphicalOptimizer:
             n_jobs=self.numberInParallel,
         )
 
-        self.results = randomSearch.fit(X_train, y_train)  # Included callback function that is called after every iteration
+        self.results = randomSearch.fit(X_train, y_train)
 
         try:
             app.table.redraw()
