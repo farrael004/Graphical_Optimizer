@@ -5,6 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="2ca77dfe-f9f7-451b-b9de-911db8ebe1b4" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/sharedMemoryTest.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/storing_and_reading_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hyperoptimize.py" beforeDir="false" afterPath="$PROJECT_DIR$/hyperoptimize.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/optimizer_demonstration.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer_demonstration.py" afterDir="false" />
     </list>
@@ -12,6 +15,13 @@
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
   </component>
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />

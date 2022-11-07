@@ -83,8 +83,8 @@ if __name__ == '__main__':
                             PerformanceFunction=performanceFunction,
                             performanceParameter="Adjusted R^2 Score",
                             hyperparameters=hyperparameters,
-                            optimizer="grid",
-                            maxNumCombinations=100,
+                            optimizer="random",
+                            maxNumCombinations=20,
                             crossValidation=2,
                             parallelCombinations=3)
 

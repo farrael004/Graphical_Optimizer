@@ -1,10 +1,14 @@
 # Creating model, predict and performance functions
+import os
+import json
+import shutil
+import random
+import string
 from typing import Callable
 
 import pandas as pd
 import numpy as np
 
-from skopt.learning.gaussian_process.kernels import Hyperparameter
 from sklearn.base import BaseEstimator
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
@@ -12,33 +16,38 @@ from skopt.space import Real, Categorical, Integer
 from sklearn.model_selection import GridSearchCV
 from skopt import BayesSearchCV
 from sklearn.model_selection import RandomizedSearchCV
-from sklearn.ensemble import GradientBoostingRegressor
 
 from tkinter import *
-import tkinter as tk
 from pandastable import Table, TableModel, config
 import threading
-import multiprocessing
 
 
 # Function that will update table
 
-def print_status(scores, params, sharedMemory):  # Shows the parameters used and accuracy attained of the search so far.
-    results = pd.DataFrame(dict(scores, **params), index=[0])
-    sharedMemory.put(results)
+def print_status(self):  # Shows the parameters used and accuracy attained of the search so far.
+    # results = pd.DataFrame(dict(self.scores, **self.params), index=[0])
+    results = dict(self.scores, **self.params)
+    json_object = json.dumps(results, indent=4)
+    tempfile = ''.join(random.choice(string.ascii_letters) for i in range(10))
+    filePath = os.path.join(self.tempPath, tempfile)
+
+    with open(filePath + ".json", "w") as outfile:
+        outfile.write(json_object)
 
 
 # Custom Estimator wrapper
 
 class WrapperEstimator(BaseEstimator):
-    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, sharedMemory):
+    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, tempPath):
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
         self.PerformanceFunction = PerformanceFunction
         self.performanceParameter = performanceParameter
-        self.sharedMemory = sharedMemory
+        self.tempPath = tempPath
+        
+        self.params = None
 
-    def fit(self, X, y):
+    def fit(self, X, y, **fit_params):
         X, y = check_X_y(X, y, accept_sparse=True)
 
         self.model = self.ModelFunction(self.params, X, y)
@@ -62,7 +71,7 @@ class WrapperEstimator(BaseEstimator):
         except:
             raise AttributeError("Could not find the chosen performance parameter in the dictionary of performance "
                                  "metrics. Check if the GraphicalOptimizer object has a valid performanceParameter.")
-        print_status(self.scores, self.params, self.sharedMemory)
+        print_status(self)
         return self.scores[self.performanceParameter]
 
     def set_params(self, **params):
@@ -70,9 +79,10 @@ class WrapperEstimator(BaseEstimator):
         return self
 
 
+# Creating app class
 class _App(Frame, threading.Thread):
-    def __init__(self, sharedMemory, parent=None):
-        self.sharedMemory = sharedMemory
+    def __init__(self, tempPath, parent=None):
+        self.tempPath = tempPath
         self.parent = parent
         self.isUpdatingTable = True
         threading.Thread.__init__(self)
@@ -84,9 +94,13 @@ class _App(Frame, threading.Thread):
     def task(self):
         if not self.isUpdatingTable: return
 
-        while self.sharedMemory.empty() is False:
-            results = self.sharedMemory.get()
-            self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
+        for filename in os.listdir(self.tempPath):
+            tempfile = os.path.join(self.tempPath, filename)
+            with open(tempfile, 'r') as openfile:
+                json_object = json.load(openfile)
+                results = pd.DataFrame(json_object, index=[0])
+                self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
+            os.remove(tempfile)
 
         self.table.redraw()
         self.after(1000, self.task)
@@ -146,11 +160,13 @@ class GraphicalOptimizer:
                  ModelFunction: Callable,  # Function that defines and trains models.
                  PredictionFunction: Callable,  # Function that predicts based on the model.
                  PerformanceFunction: Callable[..., dict],  # Fuction that calculates trained models performances.
-                 hyperparameters: dict,  # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
+                 hyperparameters: dict,
+                 # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
                  performanceParameter: str,
                  optimizer: str = 'bayesian',  # Parameter that determines between 'grid', 'bayesian', and 'random'
                  maxNumCombinations: int = 100,  # Maximum number of combinations.
-                 crossValidation: int = 30,  # Splits train data and trains the same model on each split for calculating agregate performance.
+                 crossValidation: int = 30,
+                 # Splits train data and trains the same model on each split for calculating agregate performance.
                  numberInParallel: int = -1,  # Number of parallel experiments to run (-1 will set to maximum allowed).
                  parallelCombinations: int = 3,  # How many simultaneous combinations should be used.
                  seed=0):
@@ -169,9 +185,13 @@ class GraphicalOptimizer:
 
         self.results = None
 
-        m = multiprocessing.Manager()
-        self.sharedMemory = m.Queue()
-        self.app = _App(self.sharedMemory)
+        self.tempPath = os.path.join(os.getcwd(), "temp")
+        try:
+            shutil.rmtree(self.tempPath)
+        except FileNotFoundError:
+            pass
+        os.makedirs(self.tempPath, exist_ok=True)
+        self.app = _App(self.tempPath)
 
     # Optimizer types
 
@@ -200,7 +220,7 @@ class GraphicalOptimizer:
 
         bayReg = BayesSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.sharedMemory),
+                             self.performanceParameter, self.tempPath),
             hyperparameters,
             random_state=self.seed,
             verbose=0,
@@ -223,7 +243,7 @@ class GraphicalOptimizer:
     def GridOpt(self, X_train, y_train):
         grid = GridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.sharedMemory),
+                             self.performanceParameter, self.tempPath),
             {
                 'max_features': ['sqrt', 'log2'],
                 'learning_rate': np.linspace(0.1, 0.3, 10),
@@ -247,7 +267,7 @@ class GraphicalOptimizer:
     def RandomOpt(self, X_train, y_train):
         randomSearch = RandomizedSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.sharedMemory),
+                             self.performanceParameter, self.tempPath),
             {
                 'max_features': ['sqrt', 'log2'],
                 'learning_rate': np.linspace(0.1, 0.3, 10),
@@ -267,8 +287,6 @@ class GraphicalOptimizer:
         except:
             pass
         self.app.isUpdatingTable = False
-
-    # Creating app class
 
     def fit(self, X_train, y_train):
         """Used to start the optimization process by choosing which method to call.
