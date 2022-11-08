@@ -4,6 +4,10 @@ import json
 import shutil
 import random
 import string
+from warnings import warn
+
+from time import perf_counter
+
 from typing import Callable
 
 import pandas as pd
@@ -18,8 +22,37 @@ from skopt import BayesSearchCV
 from sklearn.model_selection import RandomizedSearchCV
 
 from tkinter import *
-from pandastable import Table, TableModel, config
+from pandastable import Table, TableModel, config, PlotViewer
 import threading
+
+
+class EnhancedPlotViewer(PlotViewer):
+    def replot(self, data=None):
+        data = self.table.getSelectedDataFrame()
+
+        if type(data.iloc[0].values[0]) is list:
+            columns = data.columns.tolist()
+            if len(columns) == 1:
+                columns = columns[0]
+            else:
+                raise Exception("Cannot multiplot from more than one column.")
+
+            data = pd.DataFrame(data[columns].tolist(), index=data.index.tolist())
+            data = data.transpose()
+            data.columns = [f'Experiment {i + 1}' for i in data.columns.tolist()]
+
+        return super().replot(data)
+
+
+class EnhancedTable(Table):
+
+    def plotSelected(self):
+        if not hasattr(self, 'pf') or self.pf == None:
+            self.pf = EnhancedPlotViewer(table=self)
+        else:
+            if type(self.pf.main) is Toplevel:
+                self.pf.main.deiconify()
+        return super().plotSelected()
 
 
 # Function that will update table
@@ -45,10 +78,22 @@ class WrapperEstimator(BaseEstimator):
         self.performanceParameter = performanceParameter
         self.tempPath = tempPath
 
+        self.midTrainingPerformance = {}
+
     def fit(self, X, y):
         X, y = check_X_y(X, y, accept_sparse=True)
 
-        self.model = self.ModelFunction(self.params, X, y)
+        modelTimerStart = perf_counter()
+
+        modelFunctionOutput = self.ModelFunction(self.params, X, y)
+
+        if type(modelFunctionOutput) is tuple:
+            self.model, self.midTrainingPerformance = modelFunctionOutput
+        else:
+            self.model = modelFunctionOutput
+
+        modelTimerEnd = perf_counter()
+        self.modelTimer = modelTimerEnd - modelTimerStart
 
         self.is_fitted_ = True
 
@@ -63,6 +108,10 @@ class WrapperEstimator(BaseEstimator):
     def score(self, X, y, sample_weight=None):
         y_pred = self.predict(X)
         self.scores = self.PerformanceFunction(y, y_pred)
+        self.scores["Training time"] = self.modelTimer
+
+        for k in self.midTrainingPerformance:
+            self.scores[k] = self.midTrainingPerformance[k]
 
         try:
             self.scores[self.performanceParameter]
@@ -95,10 +144,17 @@ class _App(Frame, threading.Thread):
         for filename in os.listdir(self.tempPath):
             tempfile = os.path.join(self.tempPath, filename)
             with open(tempfile, 'r') as openfile:
-                json_object = json.load(openfile)
-                results = pd.DataFrame(json_object, index=[0])
-                self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
-            os.remove(tempfile)
+                try:
+                    json_object = json.load(openfile)
+                    results = pd.DataFrame(json_object, index=[0])
+                    self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
+                except:
+                    warn("An error occurred when trying to read one of the experiment results. That is "
+                         "probably my fault :(")
+            try:
+                os.remove(tempfile)
+            except:
+                warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
 
         self.table.redraw()
         self.after(1000, self.task)
@@ -111,8 +167,8 @@ class _App(Frame, threading.Thread):
         self.f = Frame(self.main)
         self.f.pack(fill=BOTH, expand=1)
         df = pd.DataFrame()
-        self.table = pt = Table(self.f, dataframe=df,
-                                showtoolbar=True, showstatusbar=True)
+        self.table = pt = EnhancedTable(self.f, dataframe=df,
+                                        showtoolbar=True, showstatusbar=True)
         pt.show()
         options = {'colheadercolor': 'green', 'floatprecision': 5}  # set some options
         config.apply_options(options, pt)
@@ -137,7 +193,9 @@ class GraphicalOptimizer:
     ModelFunction: Model training function.
     The function that implements the model that takes different hyperparameters for experimenting.
     This function is assumed to return the model so it can be used for making predictions and measuring
-    its performance.
+    its performance. Optinally, a second output for displaying mid training performance can be included
+    when returning the function. This second output must be a dictionary and must be able to be JSON
+    serializable.
     
     PredictionFunction: Prediction function.
     The function that takes the model function and input data to make a prediction.
@@ -158,7 +216,8 @@ class GraphicalOptimizer:
                  ModelFunction: Callable,  # Function that defines and trains models.
                  PredictionFunction: Callable,  # Function that predicts based on the model.
                  PerformanceFunction: Callable[..., dict],  # Fuction that calculates trained models performances.
-                 hyperparameters: dict,  # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
+                 hyperparameters: dict,
+                 # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
                  performanceParameter: str,
                  optimizer: str = 'bayesian',  # Parameter that determines between 'grid', 'bayesian', and 'random'
                  maxNumCombinations: int = 100,  # Maximum number of combinations.
@@ -238,9 +297,12 @@ class GraphicalOptimizer:
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath),
             {
+                'n_estimators': range(5000, 6000, 100),
                 'max_features': ['sqrt', 'log2'],
-                'learning_rate': np.linspace(0.1, 0.3, 10),
+                'learning_rate': np.linspace(0.01, 0.3, 10),
                 'max_depth': range(3, 7),
+                'min_samples_leaf': range(2, 22, 2),
+                'min_samples_split': range(2, 17, 2)
             },
             verbose=0,
             cv=self.crossValidation,

@@ -45,7 +45,10 @@ def modelFunction(params, X_train, y_train):
                                     random_state=42)
 
     model = gbr.fit(X_train, y_train)
-    return model
+
+    train_score = {"Train score": [model.train_score_.tolist()[:1000]]}
+    
+    return model, train_score
 
 
 def predictionFunction(model, X):
@@ -82,9 +85,9 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PerformanceFunction=performanceFunction,
                          performanceParameter="Adjusted R^2 Score",
                          hyperparameters=hyperparameters,
-                         optimizer="bayesian",
-                         maxNumCombinations=100,
+                         optimizer="grid",
+                         maxNumCombinations=80,
                          crossValidation=2,
-                         parallelCombinations=3)
+                         parallelCombinations=2)
 
 opt.fit(X_train, y_train)
