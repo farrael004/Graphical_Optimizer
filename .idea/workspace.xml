@@ -4,9 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="2ca77dfe-f9f7-451b-b9de-911db8ebe1b4" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/sharedMemoryTest.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/storing_and_reading_test.py" afterDir="false" />
+    <list default="true" id="84ce0ed1-8892-4ddc-9eff-1fe2025cc5c8" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hyperoptimize.py" beforeDir="false" afterPath="$PROJECT_DIR$/hyperoptimize.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/optimizer_demonstration.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer_demonstration.py" afterDir="false" />

@@ -44,10 +44,8 @@ class WrapperEstimator(BaseEstimator):
         self.PerformanceFunction = PerformanceFunction
         self.performanceParameter = performanceParameter
         self.tempPath = tempPath
-        
-        self.params = None
 
-    def fit(self, X, y, **fit_params):
+    def fit(self, X, y):
         X, y = check_X_y(X, y, accept_sparse=True)
 
         self.model = self.ModelFunction(self.params, X, y)
@@ -160,8 +158,7 @@ class GraphicalOptimizer:
                  ModelFunction: Callable,  # Function that defines and trains models.
                  PredictionFunction: Callable,  # Function that predicts based on the model.
                  PerformanceFunction: Callable[..., dict],  # Fuction that calculates trained models performances.
-                 hyperparameters: dict,
-                 # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
+                 hyperparameters: dict,  # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
                  performanceParameter: str,
                  optimizer: str = 'bayesian',  # Parameter that determines between 'grid', 'bayesian', and 'random'
                  maxNumCombinations: int = 100,  # Maximum number of combinations.
@@ -232,11 +229,7 @@ class GraphicalOptimizer:
 
         self.results = bayReg.fit(X_train, y_train)
 
-        try:
-            self.app.table.redraw()
-        except:
-            pass
-        self.app.isUpdatingTable = False
+        self._finalizeOptimization()
 
     ## Grid
 
@@ -256,11 +249,7 @@ class GraphicalOptimizer:
 
         self.results = grid.fit(X_train, y_train)
 
-        try:
-            self.app.table.redraw()
-        except:
-            pass
-        self.app.isUpdatingTable = False
+        self._finalizeOptimization()
 
     ## Random
 
@@ -282,11 +271,7 @@ class GraphicalOptimizer:
 
         self.results = randomSearch.fit(X_train, y_train)
 
-        try:
-            self.app.table.redraw()
-        except:
-            pass
-        self.app.isUpdatingTable = False
+        self._finalizeOptimization()
 
     def fit(self, X_train, y_train):
         """Used to start the optimization process by choosing which method to call.
@@ -311,3 +296,14 @@ class GraphicalOptimizer:
                 self.RandomOpt(X_train, y_train)
             case _:
                 raise ValueError("Choose between bayesian, grid, or random optimizers")
+
+    def _finalizeOptimization(self):
+        try:
+            self.app.table.redraw()
+        except:
+            pass
+        self.app.isUpdatingTable = False
+        try:
+            shutil.rmtree(self.tempPath)
+        except FileNotFoundError:
+            pass
