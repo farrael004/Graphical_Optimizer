@@ -89,8 +89,8 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Up
 
 # Performing optimization
 
-def runMeWhileOptimizing(app: App):
-    #print(app.table.model.df)
+def runMeWhileOptimizing(opt: GraphicalOptimizer):
+    #print(opt.df)
     return
 
 
@@ -108,9 +108,9 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PredictionFunction=predictionFunction,
                          PerformanceFunction=performanceFunction,
                          performanceParameter="Adjusted R^2 Score",
-                         hyperparameters=hyperparameters_grid_and_random,
-                         optimizer="random",
-                         maxNumCombinations=10,
+                         hyperparameters=hyperparameters_bayesian,
+                         optimizer="bayesian",
+                         maxNumCombinations=5,
                          crossValidation=2,
                          maxNumOfParallelProcesses=-1,
                          parallelCombinations=2,
