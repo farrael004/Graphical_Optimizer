@@ -79,8 +79,8 @@ hyperparameters_bayesian = {'n_estimators': [5000, 6000],  # Upper and lower bou
                             'min_samples_leaf': [1, 21],  # Upper and lower bounds
                             'min_samples_split': [2, 16], }  # Upper and lower bounds
 
-hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000),  # Upper and lower bounds
-                                   'learning_rate': np.linspace(0.001, 0.01, 100).tolist(),  # Upper and lower bounds
+hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Upper and lower bounds
+                                   'learning_rate': np.linspace(0.001, 0.01, 10).tolist(),  # Upper and lower bounds
                                    'max_depth': range(2, 6),  # Upper and lower bounds
                                    'max_features': ['sqrt', 'log2'],  # Categorical bounds
                                    'min_samples_leaf': range(1, 21),  # Upper and lower bounds
@@ -90,7 +90,8 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000),  # Upper a
 # Performing optimization
 
 def runMeWhileOptimizing(app: App):
-    print(app.table.model.df)
+    #print(app.table.model.df)
+    return
 
 
 def runMeAfterOptimizing(opt: GraphicalOptimizer):

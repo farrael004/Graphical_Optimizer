@@ -297,7 +297,8 @@ class GraphicalOptimizer:
 
     def GridOpt(self, X_train, y_train):
         hyperparameters = self.gridAndRandomHyperparameters()
-        print(hyperparameters)
+        self.checkNumberOfCombinations(hyperparameters)
+        
         grid = GridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath),
@@ -310,6 +311,16 @@ class GraphicalOptimizer:
         self.results = grid.fit(X_train, y_train)
 
         self._finalizeOptimization()
+
+    def checkNumberOfCombinations(self, hyperparameters):
+        items = 1
+        for k in hyperparameters:
+            items *= len(hyperparameters[k])
+        
+        if items > 10_000_000:
+            warn(f"There is a very large number combinations of hyperparameters ({items} combinations). The more combinations, the longer it "
+                 "may take for the optimization to initiate. Consider using the 'random' method instead of 'grid' or "
+                 "lowering the number of combinations.")
 
     ## Random
 
