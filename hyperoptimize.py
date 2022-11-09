@@ -79,28 +79,26 @@ class WrapperEstimator(BaseEstimator):
         self.tempPath = tempPath
 
         self.midTrainingPerformance = {}
-
+        
     def fit(self, X, y):
-        X, y = check_X_y(X, y, accept_sparse=True)
-
         modelTimerStart = perf_counter()
-
+        
         modelFunctionOutput = self.ModelFunction(self.params, X, y)
-
+        
+        modelTimerEnd = perf_counter()
+        
         if type(modelFunctionOutput) is tuple:
             self.model, self.midTrainingPerformance = modelFunctionOutput
         else:
             self.model = modelFunctionOutput
 
-        modelTimerEnd = perf_counter()
         self.modelTimer = modelTimerEnd - modelTimerStart
 
         self.is_fitted_ = True
-
+        
         return self
 
     def predict(self, X):
-        X = check_array(X, accept_sparse=True)
         check_is_fitted(self, 'is_fitted_')
         prediction = self.PredictionFunction(self.model, X)
         return prediction
@@ -127,10 +125,11 @@ class WrapperEstimator(BaseEstimator):
 
 
 # Creating app class
-class _App(Frame, threading.Thread):
-    def __init__(self, tempPath, parent=None):
+class App(Frame, threading.Thread):
+    def __init__(self, tempPath, parent=None, concurrentFunction: Callable=None):
         self.tempPath = tempPath
         self.parent = parent
+        self.concurrentFunction = concurrentFunction
         self.isUpdatingTable = True
         threading.Thread.__init__(self)
         self.start()
@@ -138,7 +137,7 @@ class _App(Frame, threading.Thread):
     def callback(self):
         self.root.quit()
 
-    def task(self):
+    def retrieveExperiments(self):
         if not self.isUpdatingTable: return
 
         for filename in os.listdir(self.tempPath):
@@ -149,15 +148,15 @@ class _App(Frame, threading.Thread):
                     results = pd.DataFrame(json_object, index=[0])
                     self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
                 except:
-                    warn("An error occurred when trying to read one of the experiment results. That is "
-                         "probably my fault :(")
+                    warn("An error occurred when trying to read one of the experiment results.")
             try:
                 os.remove(tempfile)
             except:
                 warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
 
         self.table.redraw()
-        self.after(1000, self.task)
+        self.concurrentFunction(self)
+        self.after(1000, self.retrieveExperiments)
 
     def run(self):
         Frame.__init__(self)
@@ -174,7 +173,7 @@ class _App(Frame, threading.Thread):
         config.apply_options(options, pt)
         pt.show()
 
-        self.after(1000, self.task)
+        self.after(1000, self.retrieveExperiments)
 
         self.mainloop()
 
@@ -223,9 +222,11 @@ class GraphicalOptimizer:
                  maxNumCombinations: int = 100,  # Maximum number of combinations.
                  crossValidation: int = 30,
                  # Splits train data and trains the same model on each split for calculating agregate performance.
-                 numberInParallel: int = -1,  # Number of parallel experiments to run (-1 will set to maximum allowed).
+                 maxNumOfParallelProcesses: int = -1,  # Number of parallel experiments to run (-1 will set to maximum allowed).
                  parallelCombinations: int = 3,  # How many simultaneous combinations should be used.
-                 seed=0):
+                 seed=0,
+                 concurrentFunction: Callable=None,
+                 completionFunction: Callable=None):
 
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
@@ -235,9 +236,11 @@ class GraphicalOptimizer:
         self.optimizer = optimizer
         self.maxNumCombinations = maxNumCombinations
         self.crossValidation = crossValidation
-        self.numberInParallel = numberInParallel
+        self.maxNumOfParallelProcesses = maxNumOfParallelProcesses
         self.parallelCombinations = parallelCombinations
         self.seed = seed
+        self.concurrentFunction = concurrentFunction
+        self.completionFunction = completionFunction
 
         self.results = None
 
@@ -247,7 +250,7 @@ class GraphicalOptimizer:
         except FileNotFoundError:
             pass
         os.makedirs(self.tempPath, exist_ok=True)
-        self.app = _App(self.tempPath)
+        self.app = App(self.tempPath, concurrentFunction=self.concurrentFunction)
 
     # Optimizer types
 
@@ -282,7 +285,7 @@ class GraphicalOptimizer:
             verbose=0,
             n_iter=self.maxNumCombinations,
             cv=self.crossValidation,
-            n_jobs=self.numberInParallel,
+            n_jobs=self.maxNumOfParallelProcesses,
             n_points=self.parallelCombinations
         )
 
@@ -293,22 +296,17 @@ class GraphicalOptimizer:
     ## Grid
 
     def GridOpt(self, X_train, y_train):
+        hyperparameters = self.gridAndRandomHyperparameters()
+        print(hyperparameters)
         grid = GridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath),
-            {
-                'n_estimators': range(5000, 6000, 100),
-                'max_features': ['sqrt', 'log2'],
-                'learning_rate': np.linspace(0.01, 0.3, 10),
-                'max_depth': range(3, 7),
-                'min_samples_leaf': range(2, 22, 2),
-                'min_samples_split': range(2, 17, 2)
-            },
+            hyperparameters,
             verbose=0,
             cv=self.crossValidation,
-            n_jobs=self.numberInParallel,
+            n_jobs=self.maxNumOfParallelProcesses,
         )
-
+        
         self.results = grid.fit(X_train, y_train)
 
         self._finalizeOptimization()
@@ -316,24 +314,41 @@ class GraphicalOptimizer:
     ## Random
 
     def RandomOpt(self, X_train, y_train):
+        hyperparameters = self.gridAndRandomHyperparameters()
+                
         randomSearch = RandomizedSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath),
-            {
-                'max_features': ['sqrt', 'log2'],
-                'learning_rate': np.linspace(0.1, 0.3, 10),
-                'max_depth': range(3, 7),
-            },
+            hyperparameters,
             random_state=self.seed,
             verbose=0,
             n_iter=self.maxNumCombinations,
             cv=self.crossValidation,
-            n_jobs=self.numberInParallel,
+            n_jobs=self.maxNumOfParallelProcesses,
         )
 
         self.results = randomSearch.fit(X_train, y_train)
 
         self._finalizeOptimization()
+
+    def gridAndRandomHyperparameters(self):
+        hyperparameters = {}
+        for k in self.hyperparameters:
+            v = self.hyperparameters[k]
+
+            if type(v) is not list and type(v) is not range:
+                raise TypeError("Each hyperparameter must be in the form of a python list or range with at least one "
+                                "object populating it.")
+
+            if type(v[0]) is not float and type(v[0]) is not int: # Categorical
+                hyperparameters[k] = [item for item in v]
+                continue
+
+            if type(v[0]) is float: # Real
+                hyperparameters[k] = [item for item in v]
+            else: # Integer
+                hyperparameters[k] = [item for item in v]
+        return hyperparameters
 
     def fit(self, X_train, y_train):
         """Used to start the optimization process by choosing which method to call.
@@ -369,3 +384,7 @@ class GraphicalOptimizer:
             shutil.rmtree(self.tempPath)
         except FileNotFoundError:
             pass
+        
+        self.df = self.app.table.model.df
+        
+        self.completionFunction(self)

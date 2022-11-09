@@ -9,6 +9,7 @@ from sklearn.decomposition import PCA
 from sklearn.ensemble import GradientBoostingRegressor
 
 from hyperoptimize import GraphicalOptimizer
+from hyperoptimize import App
 
 # Loading data
 
@@ -36,18 +37,18 @@ X_val = pca.transform(X_val)  # Apply created normalization to new data
 # Creating model, prediction and performance functions
 
 def modelFunction(params, X_train, y_train):
-    gbr = GradientBoostingRegressor(n_estimators=6000,
+    gbr = GradientBoostingRegressor(n_estimators=params['n_estimators'],
                                     learning_rate=params['learning_rate'],
                                     max_depth=params['max_depth'],
                                     max_features=params['max_features'],
-                                    min_samples_leaf=10,
-                                    min_samples_split=8,
+                                    min_samples_leaf=params['min_samples_leaf'],
+                                    min_samples_split=params['min_samples_split'],
                                     random_state=42)
 
     model = gbr.fit(X_train, y_train)
 
     train_score = {"Train score": [model.train_score_.tolist()[:1000]]}
-    
+
     return model, train_score
 
 
@@ -71,23 +72,48 @@ def performanceFunction(y_test, y_pred):
 
 # Creating hyperparameter dictionary
 
-hyperparameters = {'n_estimators': [5000, 6000],  # Upper and lower bounds
-                   'learning_rate': [0.001, 0.01],  # Upper and lower bounds
-                   'max_depth': [2, 6],  # Upper and lower bounds
-                   'max_features': ['sqrt', 'log2'],  # Categorical bounds
-                   'min_samples_leaf': [1, 21],  # Upper and lower bounds
-                   'min_samples_split': [1, 16], }  # Upper and lower bounds
+hyperparameters_bayesian = {'n_estimators': [5000, 6000],  # Upper and lower bounds
+                            'learning_rate': [0.001, 0.01],  # Upper and lower bounds
+                            'max_depth': [2, 6],  # Upper and lower bounds
+                            'max_features': ['sqrt', 'log2'],  # Categorical bounds
+                            'min_samples_leaf': [1, 21],  # Upper and lower bounds
+                            'min_samples_split': [2, 16], }  # Upper and lower bounds
+
+hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000),  # Upper and lower bounds
+                                   'learning_rate': np.linspace(0.001, 0.01, 100).tolist(),  # Upper and lower bounds
+                                   'max_depth': range(2, 6),  # Upper and lower bounds
+                                   'max_features': ['sqrt', 'log2'],  # Categorical bounds
+                                   'min_samples_leaf': range(1, 21),  # Upper and lower bounds
+                                   'min_samples_split': range(2, 16), }  # Upper and lower bounds
+
 
 # Performing optimization
+
+def runMeWhileOptimizing(app: App):
+    print(app.table.model.df)
+
+
+def runMeAfterOptimizing(opt: GraphicalOptimizer):
+    df = opt.df
+    bestIndex = df["Adjusted R^2 Score"].idxmax()
+    bestParams = df.iloc[bestIndex]
+    print("Finished optimizing")
+    print(f'Best performance: {bestParams["Adjusted R^2 Score"]}')
+    print("Best combination of hyperparameters are:")
+    print(bestParams[6:])
+
 
 opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PredictionFunction=predictionFunction,
                          PerformanceFunction=performanceFunction,
                          performanceParameter="Adjusted R^2 Score",
-                         hyperparameters=hyperparameters,
-                         optimizer="grid",
-                         maxNumCombinations=80,
+                         hyperparameters=hyperparameters_grid_and_random,
+                         optimizer="random",
+                         maxNumCombinations=10,
                          crossValidation=2,
-                         parallelCombinations=2)
+                         maxNumOfParallelProcesses=-1,
+                         parallelCombinations=2,
+                         concurrentFunction=runMeWhileOptimizing,
+                         completionFunction=runMeAfterOptimizing)
 
 opt.fit(X_train, y_train)

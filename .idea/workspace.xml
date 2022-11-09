@@ -5,10 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="84ce0ed1-8892-4ddc-9eff-1fe2025cc5c8" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/pandastable_test.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/example_visualizer.ipynb" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/optimizer_simple_demonstration.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hyperoptimize.py" beforeDir="false" afterPath="$PROJECT_DIR$/hyperoptimize.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/optimizer_demonstration.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer_demonstration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/pandastable_test.py" beforeDir="false" afterPath="$PROJECT_DIR$/pandastable_test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -36,16 +38,22 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.OpenProjectViewOnStart": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "last_opened_file_path": "C:/Users/Rafael/Documents/GitHub/Graphical_Optimizer"
   }
-}</component>
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\Rafael\Documents\GitHub\Graphical_Optimizer" />
+    </key>
+  </component>
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
   <component name="TaskManager">
     <task active="true" id="Default" summary="Default task">
-      <changelist id="2ca77dfe-f9f7-451b-b9de-911db8ebe1b4" name="Changes" comment="" />
+      <changelist id="84ce0ed1-8892-4ddc-9eff-1fe2025cc5c8" name="Changes" comment="" />
       <created>1667597866842</created>
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
@@ -63,5 +71,15 @@
         </entry>
       </map>
     </option>
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/optimizer_simple_demonstration.py</url>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
   </component>
 </project>
