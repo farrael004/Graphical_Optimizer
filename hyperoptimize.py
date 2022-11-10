@@ -715,7 +715,7 @@ class GraphicalOptimizer:
                 continue
 
             if len(v) != 2:
-                raise Exception("Hyperparameters of float or int type must be in the form of [lower_bound, "
+                raise Exception("Hyperparameters in bayesian search of float or int type must be in the form of [lower_bound, "
                                 "higher_bound].")
 
             if type(v[0]) is float or type(v[-1]) is float:
@@ -836,7 +836,10 @@ class GraphicalOptimizer:
             self.app.table.redraw()
         except:
             pass
+        
         self.app.isUpdatingTable = False
+        self.app.retrieveExperiments()
+        
         try:
             shutil.rmtree(self.tempPath)
         except FileNotFoundError:
@@ -844,7 +847,8 @@ class GraphicalOptimizer:
         
         self.df = self.app.table.model.df
         
-        self.completionFunction(self)
+        if self.completionFunction is not None:
+            self.completionFunction(self)
 
 # Creating app class
 class App(Frame, threading.Thread):
@@ -861,24 +865,31 @@ class App(Frame, threading.Thread):
         self.root.quit()
 
     def retrieveExperiments(self):
-        if not self.isUpdatingTable: return
-
-        for filename in os.listdir(self.tempPath):
-            tempfile = os.path.join(self.tempPath, filename)
-            with open(tempfile, 'r') as openfile:
+        try:
+            for filename in os.listdir(self.tempPath):
+                tempfile = os.path.join(self.tempPath, filename)
+                with open(tempfile, 'r') as openfile:
+                    try:
+                        json_object = json.load(openfile)
+                        results = pd.DataFrame(json_object, index=[0])
+                        self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
+                    except:
+                        warn("An error occurred when trying to read one of the experiment results.")
                 try:
-                    json_object = json.load(openfile)
-                    results = pd.DataFrame(json_object, index=[0])
-                    self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
+                    os.remove(tempfile)
                 except:
-                    warn("An error occurred when trying to read one of the experiment results.")
-            try:
-                os.remove(tempfile)
-            except:
-                warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
-        self.optmizer.df = self.table.model.df
+                    warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
+            self.optmizer.df = self.table.model.df
+        except FileNotFoundError:
+            if self.isUpdatingTable:
+                raise FileNotFoundError(f"temp folder at {self.tempPath} not found.")
+            pass
+        
+        if self.concurrentFunction is not None:
+            self.concurrentFunction(self.optmizer)
+        
         self.table.redraw()
-        self.concurrentFunction(self.optmizer)
+        if not self.isUpdatingTable: return
         self.after(1000, self.retrieveExperiments)
 
     def run(self):
