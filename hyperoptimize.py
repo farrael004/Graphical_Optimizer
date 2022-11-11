@@ -560,7 +560,7 @@ def print_status(self):  # Shows the parameters used and accuracy attained of th
     # results = pd.DataFrame(dict(self.scores, **self.params), index=[0])
     results = dict(self.scores, **self.params)
     json_object = json.dumps(results, indent=4)
-    tempfile = ''.join(random.choice(string.ascii_letters) for i in range(10))
+    tempfile = self.id + ''.join(random.choice(string.ascii_letters) for i in range(10))
     filePath = os.path.join(self.tempPath, tempfile)
 
     with open(filePath + ".json", "w") as outfile:
@@ -570,12 +570,13 @@ def print_status(self):  # Shows the parameters used and accuracy attained of th
 # Custom Estimator wrapper
 
 class WrapperEstimator(BaseEstimator):
-    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, tempPath):
+    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, tempPath, id):
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
         self.PerformanceFunction = PerformanceFunction
         self.performanceParameter = performanceParameter
         self.tempPath = tempPath
+        self.id = id
 
         self.midTrainingPerformance = {}
         
@@ -670,6 +671,7 @@ class GraphicalOptimizer:
                  maxNumOfParallelProcesses: int = -1,  # Number of parallel experiments to run (-1 will set to maximum allowed).
                  parallelCombinations: int = 3,  # How many simultaneous combinations should be used.
                  seed=0,
+                 createGUI=True,
                  concurrentFunction: Callable=None,
                  completionFunction: Callable=None):
 
@@ -687,16 +689,22 @@ class GraphicalOptimizer:
         self.concurrentFunction = concurrentFunction
         self.completionFunction = completionFunction
 
+        self.isUpdatingTable = True
         self.results = None
-        self.df = None
+        self.df = pd.DataFrame()
+        self.id = ''.join(random.choice(string.ascii_letters) for i in range(10))
 
         self.tempPath = os.path.join(os.getcwd(), "temp")
         try:
-            shutil.rmtree(self.tempPath)
+            #shutil.rmtree(self.tempPath)
+            pass
         except FileNotFoundError:
             pass
         os.makedirs(self.tempPath, exist_ok=True)
-        self.app = App(self, concurrentFunction=self.concurrentFunction)
+        if createGUI: self.app = App(self, concurrentFunction=self.concurrentFunction)
+        else:
+            t = threading.Thread(target=self.update_results)
+            t.start()
 
     # Optimizer types
 
@@ -725,7 +733,7 @@ class GraphicalOptimizer:
 
         bayReg = EnhancedBayesianSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath),
+                             self.performanceParameter, self.tempPath, self.id),
             hyperparameters,
             random_state=self.seed,
             verbose=0,
@@ -747,7 +755,7 @@ class GraphicalOptimizer:
         
         grid = EnhancedGridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath),
+                             self.performanceParameter, self.tempPath, self.id),
             hyperparameters,
             verbose=0,
             cv=self.crossValidation,
@@ -772,10 +780,10 @@ class GraphicalOptimizer:
 
     def RandomOpt(self, X_train, y_train):
         hyperparameters = self.gridAndRandomHyperparameters()
-                
+               
         randomSearch = EnhancedRandomSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath),
+                             self.performanceParameter, self.tempPath, self.id),
             hyperparameters,
             random_state=self.seed,
             verbose=0,
@@ -806,6 +814,35 @@ class GraphicalOptimizer:
             else: # Integer
                 hyperparameters[k] = [item for item in v]
         return hyperparameters
+    
+    def retrieve_experiments(self):
+        try:
+            for filename in os.listdir(self.tempPath):
+                tempfile = os.path.join(self.tempPath, filename)
+                if filename[:10] != self.id: continue # check if file originates from this optimization session
+                
+                with open(tempfile, 'r') as openfile:
+                    try:
+                        json_object = json.load(openfile)
+                        results = pd.DataFrame(json_object, index=[0])
+                        self.df = pd.concat([self.df, results], ignore_index=True, axis=0)
+                    except:
+                        warn("An error occurred when trying to read one of the experiment results.")
+                try:
+                    os.remove(tempfile)
+                except:
+                    warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
+            
+        except FileNotFoundError:
+            if self.isUpdatingTable:
+                raise FileNotFoundError(f"temp folder at {self.tempPath} not found.")
+            pass
+        
+    def update_results(self):
+        while(self.isUpdatingTable):
+            self.retrieve_experiments()
+            if self.concurrentFunction: self.concurrentFunction(self)
+            time.sleep(1)
 
     def fit(self, X_train, y_train):
         """Used to start the optimization process by choosing which method to call.
@@ -837,15 +874,19 @@ class GraphicalOptimizer:
         except:
             pass
         
-        self.app.isUpdatingTable = False
-        self.app.retrieveExperiments()
+        self.isUpdatingTable = False
+        if hasattr(self, 'app'):
+            self.app.isUpdatingTable = False
+            self.app.update_graphical_table()
+            self.df = self.app.table.model.df
+        else:
+            self.retrieve_experiments()
         
         try:
-            shutil.rmtree(self.tempPath)
+            #shutil.rmtree(self.tempPath)
+            pass
         except FileNotFoundError:
             pass
-        
-        self.df = self.app.table.model.df
         
         if self.completionFunction is not None:
             self.completionFunction(self)
@@ -855,6 +896,7 @@ class App(Frame, threading.Thread):
     def __init__(self, optimizer: GraphicalOptimizer, parent=None, concurrentFunction: Callable=None):
         self.tempPath = optimizer.tempPath
         self.optmizer = optimizer
+        self.id = optimizer.id
         self.parent = parent
         self.concurrentFunction = concurrentFunction
         self.isUpdatingTable = True
@@ -864,39 +906,19 @@ class App(Frame, threading.Thread):
     def callback(self):
         self.root.quit()
 
-    def retrieveExperiments(self):
-        try:
-            for filename in os.listdir(self.tempPath):
-                tempfile = os.path.join(self.tempPath, filename)
-                with open(tempfile, 'r') as openfile:
-                    try:
-                        json_object = json.load(openfile)
-                        results = pd.DataFrame(json_object, index=[0])
-                        self.table.model.df = pd.concat([self.table.model.df, results], ignore_index=True, axis=0)
-                    except:
-                        warn("An error occurred when trying to read one of the experiment results.")
-                try:
-                    os.remove(tempfile)
-                except:
-                    warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
-            self.optmizer.df = self.table.model.df
-        except FileNotFoundError:
-            if self.isUpdatingTable:
-                raise FileNotFoundError(f"temp folder at {self.tempPath} not found.")
-            pass
-        
-        if self.concurrentFunction is not None:
-            self.concurrentFunction(self.optmizer)
+    def update_graphical_table(self):
+        self.optmizer.retrieve_experiments()
+        self.table.model.df = self.optmizer.df
         
         self.table.redraw()
         if not self.isUpdatingTable: return
-        self.after(1000, self.retrieveExperiments)
+        self.after(1000, self.update_graphical_table)
 
     def run(self):
         Frame.__init__(self)
         self.main = self.master
         self.main.geometry('600x400+200+100')
-        self.main.title('Optimizer')
+        self.main.title('Experiment results')
         self.f = Frame(self.main)
         self.f.pack(fill=BOTH, expand=1)
         df = pd.DataFrame()
@@ -907,6 +929,8 @@ class App(Frame, threading.Thread):
         config.apply_options(options, pt)
         pt.show()
 
-        self.after(1000, self.retrieveExperiments)
+        self.after(1000, self.update_graphical_table)
+        if self.concurrentFunction is not None:
+            self.after(1000, self.concurrentFunction(self.optmizer))
 
         self.mainloop()

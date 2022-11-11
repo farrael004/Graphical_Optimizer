@@ -1,3 +1,5 @@
+import time
+
 import pandas as pd
 import numpy as np
 
@@ -90,7 +92,9 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Up
 # Performing optimization
 
 def runMeWhileOptimizing(opt: GraphicalOptimizer):
-    #print(opt.df)
+    print(opt.df)
+
+    #opt.app.after(1000, opt.app.concurrentFunction(opt))
     return
 
 
@@ -114,6 +118,7 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          crossValidation=2,
                          maxNumOfParallelProcesses=-1,
                          parallelCombinations=2,
+                         createGUI=False,
                          concurrentFunction=runMeWhileOptimizing,
                          completionFunction=runMeAfterOptimizing)
 
