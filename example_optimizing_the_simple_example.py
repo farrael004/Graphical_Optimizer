@@ -36,10 +36,8 @@ X_val = pca.transform(X_val)  # Apply created normalization to new data
 
 def model(params, X_train, y_train):
     def modelFunction(params, X_train, y_train):
-        #model = np.sin(3 * params['X']) - params['X'] ** 2 + 0.7 * params['X']
         model = np.sin(3*params['X'])+np.cos(2*params['X'])-2.2*np.sin(3*params['X'])-2*np.cos(3.4*params['X'])
         model += np.sin(3*params['Y'])+np.cos(2*params['Y'])-2.2*np.sin(3*params['Y'])-2*np.cos(3.4*params['Y'])
-        # sleep(1)
         return model
 
     def predictionFunction(model, X):
@@ -53,8 +51,8 @@ def model(params, X_train, y_train):
 
     hyperparameters_bayesian = {'X': [-5.0, 5.0], 'Y': [-5.0, 5.0]}  # Upper and lower bounds
 
-    hyperparameters_grid_and_random = {'X': np.linspace(-5, 5, 100).tolist(),
-                                       'Y': np.linspace(-5, 5, 100).tolist()}  # Upper and lower bounds
+    hyperparameters_grid_and_random = {'X': np.linspace(-5, 5, 14).tolist(),
+                                       'Y': np.linspace(-5, 5, 14).tolist()}  # Upper and lower bounds
 
     if params['method'] == 'bayesian':
         hyperparams = hyperparameters_bayesian
@@ -71,8 +69,8 @@ def model(params, X_train, y_train):
                              optimizer=params['method'],
                              maxNumCombinations=params['total combinations'],
                              crossValidation=2,
-                             maxNumOfParallelProcesses=params['parallel combinations'],
-                             parallelCombinations=1,
+                             maxNumOfParallelProcesses=-1,
+                             parallelCombinations=params['parallel combinations'],
                              seed=1,
                              createGUI=False)
 
@@ -90,7 +88,7 @@ def perf(y_test, y_pred):
     return {"score": y_pred}
 
 
-hyper = {'method': ['bayesian', 'grid', 'random'],
+hyper = {'method': ['bayesian'],
          'total combinations': [15, 30, 45, 90, 125, 140, 175],
          'parallel combinations': [1, 3, 6, 9, 12]}
 
@@ -100,6 +98,7 @@ opt = GraphicalOptimizer(ModelFunction=model,
                          performanceParameter="score",
                          hyperparameters=hyper,
                          optimizer='grid',
-                         crossValidation=2)
+                         crossValidation=2,
+                         maxNumOfParallelProcesses=1)
 
 opt.fit(X_train, y_train)

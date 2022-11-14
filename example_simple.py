@@ -35,12 +35,6 @@ print(f'Maximum score is: {Z.max()}')
 surf = ax.plot_surface(X, y, Z, cmap=cm.coolwarm,
                        linewidth=0, antialiased=False)
 
-# Customize the z axis.
-#ax.set_zlim(-1.01, 1.01)
-#ax.zaxis.set_major_locator(LinearLocator(10))
-# A StrMethodFormatter is used automatically
-#ax.zaxis.set_major_formatter('{x:.02f}')
-
 # Add a color bar which maps values to colors.
 fig.colorbar(surf, shrink=0.5, aspect=5)
 
@@ -54,7 +48,6 @@ plt.show()
 def modelFunction(params, X_train, y_train):
     model = np.sin(3 * params['X']) + np.cos(2 * params['X']) - 2.2 * np.sin(3 * params['X']) - 2 * np.cos(3.4 * params['X'])
     model += np.sin(3 * params['Y']) + np.cos(2 * params['Y']) - 2.2 * np.sin(3 * params['Y']) - 2 * np.cos(3.4 * params['Y'])
-    # sleep(1)
     return model
 
 

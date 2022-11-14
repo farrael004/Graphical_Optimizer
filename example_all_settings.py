@@ -69,6 +69,7 @@ def performanceFunction(y_test, y_pred):
                      "Mean Squared Error (MSE)": model_mse,
                      "Root Mean Squared Error (RMSE)": model_rmse,
                      "Adjusted R^2 Score": model_r2}
+
     return model_results
 
 

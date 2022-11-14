@@ -824,10 +824,11 @@ class GraphicalOptimizer:
                 with open(tempfile, 'r') as openfile:
                     try:
                         json_object = json.load(openfile)
-                        results = pd.DataFrame(json_object, index=[0])
-                        self.df = pd.concat([self.df, results], ignore_index=True, axis=0)
                     except:
                         warn("An error occurred when trying to read one of the experiment results.")
+                    else:
+                        results = pd.DataFrame(json_object, index=[0])
+                        self.df = pd.concat([self.df, results], ignore_index=True, axis=0)
                 try:
                     os.remove(tempfile)
                 except:
