@@ -1,7 +1,6 @@
 # Creating model, predict and performance functions
 import os
 import json
-import shutil
 import random
 import string
 import time
@@ -39,6 +38,7 @@ from tkinter import *
 from pandastable import Table, TableModel, config, PlotViewer
 import threading
 
+
 # Modifying package classes
 
 class EnhancedPlotViewer(PlotViewer):
@@ -55,7 +55,7 @@ class EnhancedPlotViewer(PlotViewer):
             data = pd.DataFrame(data[columns].tolist(), index=data.index.tolist())
             data = data.transpose()
             data.columns = [f'Experiment {i + 1}' for i in data.columns.tolist()]
-
+        print(data)
         return super().replot(data)
 
 
@@ -71,165 +71,165 @@ class EnhancedTable(Table):
 
 
 class EnhancedBaseSearchCV(BaseSearchCV):
-    
-        def fit(self, X, y=None, *, groups=None, **fit_params):
 
-            estimator = self.estimator
-            refit_metric = "score"
+    def fit(self, X, y=None, *, groups=None, **fit_params):
 
-            if callable(self.scoring):
-                scorers = self.scoring
-            elif self.scoring is None or isinstance(self.scoring, str):
-                scorers = check_scoring(self.estimator, self.scoring)
-            else:
-                scorers = _check_multimetric_scoring(self.estimator, self.scoring)
-                self._check_refit_for_multimetric(scorers)
+        estimator = self.estimator
+        refit_metric = "score"
+
+        if callable(self.scoring):
+            scorers = self.scoring
+        elif self.scoring is None or isinstance(self.scoring, str):
+            scorers = check_scoring(self.estimator, self.scoring)
+        else:
+            scorers = _check_multimetric_scoring(self.estimator, self.scoring)
+            self._check_refit_for_multimetric(scorers)
+            refit_metric = self.refit
+
+        X, y, groups = indexable(X, y, groups)
+        fit_params = _check_fit_params(X, fit_params)
+
+        cv_orig = check_cv(self.cv, y, classifier=is_classifier(estimator))
+        n_splits = cv_orig.get_n_splits(X, y, groups)
+
+        base_estimator = clone(self.estimator)
+
+        parallel = Parallel(n_jobs=self.n_jobs, pre_dispatch=self.pre_dispatch)
+
+        fit_and_score_kwargs = dict(
+            scorer=scorers,
+            fit_params=fit_params,
+            return_train_score=self.return_train_score,
+            return_n_test_samples=True,
+            return_times=True,
+            return_parameters=False,
+            error_score=self.error_score,
+            verbose=self.verbose,
+        )
+        results = {}
+        with parallel:
+            all_candidate_params = []
+            all_out = []
+            all_more_results = defaultdict(list)
+
+            def evaluate_candidates(candidate_params, cv=None, more_results=None):
+                cv = cv or cv_orig
+                candidate_params = list(candidate_params)
+                n_candidates = len(candidate_params)
+
+                if self.verbose > 0:
+                    print(
+                        "Fitting {0} folds for each of {1} candidates,"
+                        " totalling {2} fits".format(
+                            n_splits, n_candidates, n_candidates * n_splits
+                        )
+                    )
+
+                out = parallel(
+                    delayed(_fit_and_score)(
+                        clone(base_estimator),
+                        X,
+                        y,
+                        train=train,
+                        test=test,
+                        parameters=parameters,
+                        split_progress=(split_idx, n_splits),
+                        candidate_progress=(cand_idx, n_candidates),
+                        **fit_and_score_kwargs,
+                    )
+                    for (cand_idx, parameters), (split_idx, (train, test)) in product(
+                        enumerate(candidate_params), enumerate(cv.split(X, y, groups))
+                    )
+                )
+
+                if len(out) < 1:
+                    raise ValueError(
+                        "No fits were performed. "
+                        "Was the CV iterator empty? "
+                        "Were there no candidates?"
+                    )
+                elif len(out) != n_candidates * n_splits:
+                    raise ValueError(
+                        "cv.split and cv.get_n_splits returned "
+                        "inconsistent results. Expected {} "
+                        "splits, got {}".format(n_splits, len(out) // n_candidates)
+                    )
+
+                _warn_or_raise_about_fit_failures(out, self.error_score)
+
+                # For callable self.scoring, the return type is only know after
+                # calling. If the return type is a dictionary, the error scores
+                # can now be inserted with the correct key. The type checking
+                # of out will be done in `_insert_error_scores`.
+                if callable(self.scoring):
+                    _insert_error_scores(out, self.error_score)
+
+                all_candidate_params.extend(candidate_params)
+                all_out.extend(out)
+
+                if more_results is not None:
+                    for key, value in more_results.items():
+                        all_more_results[key].extend(value)
+
+                nonlocal results
+                results = self._format_results(
+                    all_candidate_params, n_splits, all_out, all_more_results
+                )
+
+                return results
+
+            self._run_search(evaluate_candidates)
+
+            # multimetric is determined here because in the case of a callable
+            # self.scoring the return type is only known after calling
+            first_test_score = all_out[0]["test_scores"]
+            self.multimetric_ = isinstance(first_test_score, dict)
+
+            # check refit_metric now for a callabe scorer that is multimetric
+            if callable(self.scoring) and self.multimetric_:
+                self._check_refit_for_multimetric(first_test_score)
                 refit_metric = self.refit
 
-            X, y, groups = indexable(X, y, groups)
-            fit_params = _check_fit_params(X, fit_params)
-
-            cv_orig = check_cv(self.cv, y, classifier=is_classifier(estimator))
-            n_splits = cv_orig.get_n_splits(X, y, groups)
-
-            base_estimator = clone(self.estimator)
-
-            parallel = Parallel(n_jobs=self.n_jobs, pre_dispatch=self.pre_dispatch)
-
-            fit_and_score_kwargs = dict(
-                scorer=scorers,
-                fit_params=fit_params,
-                return_train_score=self.return_train_score,
-                return_n_test_samples=True,
-                return_times=True,
-                return_parameters=False,
-                error_score=self.error_score,
-                verbose=self.verbose,
+        # For multi-metric evaluation, store the best_index_, best_params_ and
+        # best_score_ iff refit is one of the scorer names
+        # In single metric evaluation, refit_metric is "score"
+        if self.refit or not self.multimetric_:
+            self.best_index_ = self._select_best_index(
+                self.refit, refit_metric, results
             )
-            results = {}
-            with parallel:
-                all_candidate_params = []
-                all_out = []
-                all_more_results = defaultdict(list)
+            if not callable(self.refit):
+                # With a non-custom callable, we can select the best score
+                # based on the best index
+                self.best_score_ = results[f"mean_test_{refit_metric}"][
+                    self.best_index_
+                ]
+            self.best_params_ = results["params"][self.best_index_]
 
-                def evaluate_candidates(candidate_params, cv=None, more_results=None):
-                    cv = cv or cv_orig
-                    candidate_params = list(candidate_params)
-                    n_candidates = len(candidate_params)
+        if self.refit:
+            # we clone again after setting params in case some
+            # of the params are estimators as well.
+            self.best_estimator_ = clone(
+                clone(base_estimator).set_params(**self.best_params_)
+            )
+            self.best_estimator_.set_params(**self.best_params_)
+            refit_start_time = time.time()
+            if y is not None:
+                self.best_estimator_.fit(X, y, **fit_params)
+            else:
+                self.best_estimator_.fit(X, **fit_params)
+            refit_end_time = time.time()
+            self.refit_time_ = refit_end_time - refit_start_time
 
-                    if self.verbose > 0:
-                        print(
-                            "Fitting {0} folds for each of {1} candidates,"
-                            " totalling {2} fits".format(
-                                n_splits, n_candidates, n_candidates * n_splits
-                            )
-                        )
+            if hasattr(self.best_estimator_, "feature_names_in_"):
+                self.feature_names_in_ = self.best_estimator_.feature_names_in_
 
-                    out = parallel(
-                        delayed(_fit_and_score)(
-                            clone(base_estimator),
-                            X,
-                            y,
-                            train=train,
-                            test=test,
-                            parameters=parameters,
-                            split_progress=(split_idx, n_splits),
-                            candidate_progress=(cand_idx, n_candidates),
-                            **fit_and_score_kwargs,
-                        )
-                        for (cand_idx, parameters), (split_idx, (train, test)) in product(
-                            enumerate(candidate_params), enumerate(cv.split(X, y, groups))
-                        )
-                    )
+        # Store the only scorer not as a dict for single metric evaluation
+        self.scorer_ = scorers
 
-                    if len(out) < 1:
-                        raise ValueError(
-                            "No fits were performed. "
-                            "Was the CV iterator empty? "
-                            "Were there no candidates?"
-                        )
-                    elif len(out) != n_candidates * n_splits:
-                        raise ValueError(
-                            "cv.split and cv.get_n_splits returned "
-                            "inconsistent results. Expected {} "
-                            "splits, got {}".format(n_splits, len(out) // n_candidates)
-                        )
+        self.cv_results_ = results
+        self.n_splits_ = n_splits
 
-                    _warn_or_raise_about_fit_failures(out, self.error_score)
-
-                    # For callable self.scoring, the return type is only know after
-                    # calling. If the return type is a dictionary, the error scores
-                    # can now be inserted with the correct key. The type checking
-                    # of out will be done in `_insert_error_scores`.
-                    if callable(self.scoring):
-                        _insert_error_scores(out, self.error_score)
-
-                    all_candidate_params.extend(candidate_params)
-                    all_out.extend(out)
-
-                    if more_results is not None:
-                        for key, value in more_results.items():
-                            all_more_results[key].extend(value)
-
-                    nonlocal results
-                    results = self._format_results(
-                        all_candidate_params, n_splits, all_out, all_more_results
-                    )
-
-                    return results
-
-                self._run_search(evaluate_candidates)
-
-                # multimetric is determined here because in the case of a callable
-                # self.scoring the return type is only known after calling
-                first_test_score = all_out[0]["test_scores"]
-                self.multimetric_ = isinstance(first_test_score, dict)
-
-                # check refit_metric now for a callabe scorer that is multimetric
-                if callable(self.scoring) and self.multimetric_:
-                    self._check_refit_for_multimetric(first_test_score)
-                    refit_metric = self.refit
-
-            # For multi-metric evaluation, store the best_index_, best_params_ and
-            # best_score_ iff refit is one of the scorer names
-            # In single metric evaluation, refit_metric is "score"
-            if self.refit or not self.multimetric_:
-                self.best_index_ = self._select_best_index(
-                    self.refit, refit_metric, results
-                )
-                if not callable(self.refit):
-                    # With a non-custom callable, we can select the best score
-                    # based on the best index
-                    self.best_score_ = results[f"mean_test_{refit_metric}"][
-                        self.best_index_
-                    ]
-                self.best_params_ = results["params"][self.best_index_]
-
-            if self.refit:
-                # we clone again after setting params in case some
-                # of the params are estimators as well.
-                self.best_estimator_ = clone(
-                    clone(base_estimator).set_params(**self.best_params_)
-                )
-                self.best_estimator_.set_params(**self.best_params_)
-                refit_start_time = time.time()
-                if y is not None:
-                    self.best_estimator_.fit(X, y, **fit_params)
-                else:
-                    self.best_estimator_.fit(X, **fit_params)
-                refit_end_time = time.time()
-                self.refit_time_ = refit_end_time - refit_start_time
-
-                if hasattr(self.best_estimator_, "feature_names_in_"):
-                    self.feature_names_in_ = self.best_estimator_.feature_names_in_
-
-            # Store the only scorer not as a dict for single metric evaluation
-            self.scorer_ = scorers
-
-            self.cv_results_ = results
-            self.n_splits_ = n_splits
-
-            return self
+        return self
 
 
 class EnhancedBayesianSearchCV(EnhancedBaseSearchCV):
@@ -253,14 +253,14 @@ class EnhancedBayesianSearchCV(EnhancedBaseSearchCV):
 
         if iid != "deprecated":
             warn("The `iid` parameter has been deprecated "
-                          "and will be ignored.")
+                 "and will be ignored.")
         self.iid = iid  # For sklearn repr pprint
 
         super(EnhancedBayesianSearchCV, self).__init__(
-             estimator=estimator, scoring=scoring,
-             n_jobs=n_jobs, refit=refit, cv=cv, verbose=verbose,
-             pre_dispatch=pre_dispatch, error_score=error_score,
-             return_train_score=return_train_score)
+            estimator=estimator, scoring=scoring,
+            n_jobs=n_jobs, refit=refit, cv=cv, verbose=verbose,
+            pre_dispatch=pre_dispatch, error_score=error_score,
+            return_train_score=return_train_score)
 
     def _check_search_space(self, search_space):
         """Checks whether the search space argument is correct"""
@@ -479,18 +479,18 @@ class EnhancedGridSearchCV(EnhancedBaseSearchCV):
     _required_parameters = ["estimator", "param_grid"]
 
     def __init__(
-        self,
-        estimator,
-        param_grid,
-        *,
-        scoring=None,
-        n_jobs=None,
-        refit=True,
-        cv=None,
-        verbose=0,
-        pre_dispatch="2*n_jobs",
-        error_score=np.nan,
-        return_train_score=False,
+            self,
+            estimator,
+            param_grid,
+            *,
+            scoring=None,
+            n_jobs=None,
+            refit=True,
+            cv=None,
+            verbose=0,
+            pre_dispatch="2*n_jobs",
+            error_score=np.nan,
+            return_train_score=False,
     ):
         super().__init__(
             estimator=estimator,
@@ -514,20 +514,20 @@ class EnhancedRandomSearchCV(EnhancedBaseSearchCV):
     _required_parameters = ["estimator", "param_distributions"]
 
     def __init__(
-        self,
-        estimator,
-        param_distributions,
-        *,
-        n_iter=10,
-        scoring=None,
-        n_jobs=None,
-        refit=True,
-        cv=None,
-        verbose=0,
-        pre_dispatch="2*n_jobs",
-        random_state=None,
-        error_score=np.nan,
-        return_train_score=False,
+            self,
+            estimator,
+            param_distributions,
+            *,
+            n_iter=10,
+            scoring=None,
+            n_jobs=None,
+            refit=True,
+            cv=None,
+            verbose=0,
+            pre_dispatch="2*n_jobs",
+            random_state=None,
+            error_score=np.nan,
+            return_train_score=False,
     ):
         self.param_distributions = param_distributions
         self.n_iter = n_iter
@@ -553,11 +553,9 @@ class EnhancedRandomSearchCV(EnhancedBaseSearchCV):
         )
 
 
-
-# Function that will write to memory experiment results
+# Function that will write to disk experiment results
 
 def print_status(self):  # Shows the parameters used and accuracy attained of the search so far.
-    # results = pd.DataFrame(dict(self.scores, **self.params), index=[0])
     results = dict(self.scores, **self.params)
     json_object = json.dumps(results, indent=4)
     tempfile = self.id + ''.join(random.choice(string.ascii_letters) for i in range(10))
@@ -579,14 +577,14 @@ class WrapperEstimator(BaseEstimator):
         self.id = id
 
         self.midTrainingPerformance = {}
-        
+
     def fit(self, X, y):
         modelTimerStart = perf_counter()
-        
+
         modelFunctionOutput = self.ModelFunction(self.params, X, y)
-        
+
         modelTimerEnd = perf_counter()
-        
+
         if type(modelFunctionOutput) is tuple:
             self.model, self.midTrainingPerformance = modelFunctionOutput
         else:
@@ -595,7 +593,7 @@ class WrapperEstimator(BaseEstimator):
         self.modelTimer = modelTimerEnd - modelTimerStart
 
         self.is_fitted_ = True
-        
+
         return self
 
     def predict(self, X):
@@ -668,12 +666,13 @@ class GraphicalOptimizer:
                  maxNumCombinations: int = 100,  # Maximum number of combinations.
                  crossValidation: int = 30,
                  # Splits train data and trains the same model on each split for calculating agregate performance.
-                 maxNumOfParallelProcesses: int = -1,  # Number of parallel experiments to run (-1 will set to maximum allowed).
+                 maxNumOfParallelProcesses: int = -1,
+                 # Number of parallel experiments to run (-1 will set to maximum allowed).
                  parallelCombinations: int = 3,  # How many simultaneous combinations should be used.
                  seed=0,
                  createGUI=True,
-                 concurrentFunction: Callable=None,
-                 completionFunction: Callable=None):
+                 concurrentFunction: Callable = None,
+                 completionFunction: Callable = None):
 
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
@@ -696,12 +695,13 @@ class GraphicalOptimizer:
 
         self.tempPath = os.path.join(os.getcwd(), "temp")
         try:
-            #shutil.rmtree(self.tempPath)
+            # shutil.rmtree(self.tempPath)
             pass
         except FileNotFoundError:
             pass
         os.makedirs(self.tempPath, exist_ok=True)
-        if createGUI: self.app = App(self, concurrentFunction=self.concurrentFunction)
+        if createGUI:
+            self.app = App(self, concurrentFunction=self.concurrentFunction)
         else:
             t = threading.Thread(target=self.update_results)
             t.start()
@@ -723,8 +723,9 @@ class GraphicalOptimizer:
                 continue
 
             if len(v) != 2:
-                raise Exception("Hyperparameters in bayesian search of float or int type must be in the form of [lower_bound, "
-                                "higher_bound].")
+                raise Exception(
+                    "Hyperparameters in bayesian search of float or int type must be in the form of [lower_bound, "
+                    "higher_bound].")
 
             if type(v[0]) is float or type(v[-1]) is float:
                 hyperparameters[k] = Real(v[0], v[-1])
@@ -752,7 +753,7 @@ class GraphicalOptimizer:
     def GridOpt(self, X_train, y_train):
         hyperparameters = self.gridAndRandomHyperparameters()
         self.checkNumberOfCombinations(hyperparameters)
-        
+
         grid = EnhancedGridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath, self.id),
@@ -761,7 +762,7 @@ class GraphicalOptimizer:
             cv=self.crossValidation,
             n_jobs=self.maxNumOfParallelProcesses,
         )
-        
+
         self.results = grid.fit(X_train, y_train)
 
         self._finalizeOptimization()
@@ -770,17 +771,18 @@ class GraphicalOptimizer:
         items = 1
         for k in hyperparameters:
             items *= len(hyperparameters[k])
-        
+
         if items > 10_000_000:
-            warn(f"There is a very large number combinations of hyperparameters ({items} combinations). The more combinations, the longer it "
-                 "may take for the optimization to initiate. Consider using the 'random' method instead of 'grid' or "
-                 "lowering the number of combinations.")
+            warn(
+                f"There is a very large number combinations of hyperparameters ({items} combinations). The more combinations, the longer it "
+                "may take for the optimization to initiate. Consider using the 'random' method instead of 'grid' or "
+                "lowering the number of combinations.")
 
     ## Random
 
     def RandomOpt(self, X_train, y_train):
         hyperparameters = self.gridAndRandomHyperparameters()
-               
+
         randomSearch = EnhancedRandomSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath, self.id),
@@ -805,22 +807,22 @@ class GraphicalOptimizer:
                 raise TypeError("Each hyperparameter must be in the form of a python list or range with at least one "
                                 "object populating it.")
 
-            if type(v[0]) is not float and type(v[0]) is not int: # Categorical
+            if type(v[0]) is not float and type(v[0]) is not int:  # Categorical
                 hyperparameters[k] = [item for item in v]
                 continue
 
-            if type(v[0]) is float: # Real
+            if type(v[0]) is float:  # Real
                 hyperparameters[k] = [item for item in v]
-            else: # Integer
+            else:  # Integer
                 hyperparameters[k] = [item for item in v]
         return hyperparameters
-    
+
     def retrieve_experiments(self):
         try:
             for filename in os.listdir(self.tempPath):
                 tempfile = os.path.join(self.tempPath, filename)
-                if filename[:10] != self.id: continue # check if file originates from this optimization session
-                
+                if filename[:10] != self.id: continue  # check if file originates from this optimization session
+
                 with open(tempfile, 'r') as openfile:
                     try:
                         json_object = json.load(openfile)
@@ -833,14 +835,14 @@ class GraphicalOptimizer:
                     os.remove(tempfile)
                 except:
                     warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
-            
+
         except FileNotFoundError:
             if self.isUpdatingTable:
                 raise FileNotFoundError(f"temp folder at {self.tempPath} not found.")
             pass
-        
+
     def update_results(self):
-        while(self.isUpdatingTable):
+        while (self.isUpdatingTable):
             self.retrieve_experiments()
             if self.concurrentFunction: self.concurrentFunction(self)
             time.sleep(1)
@@ -874,7 +876,7 @@ class GraphicalOptimizer:
             self.app.table.redraw()
         except:
             pass
-        
+
         self.isUpdatingTable = False
         if hasattr(self, 'app'):
             self.app.isUpdatingTable = False
@@ -882,19 +884,20 @@ class GraphicalOptimizer:
             self.df = self.app.table.model.df
         else:
             self.retrieve_experiments()
-        
+
         try:
-            #shutil.rmtree(self.tempPath)
+            # shutil.rmtree(self.tempPath)
             pass
         except FileNotFoundError:
             pass
-        
+
         if self.completionFunction is not None:
             self.completionFunction(self)
 
+
 # Creating app class
 class App(Frame, threading.Thread):
-    def __init__(self, optimizer: GraphicalOptimizer, parent=None, concurrentFunction: Callable=None):
+    def __init__(self, optimizer: GraphicalOptimizer, parent=None, concurrentFunction: Callable = None):
         self.tempPath = optimizer.tempPath
         self.optmizer = optimizer
         self.id = optimizer.id
@@ -910,7 +913,7 @@ class App(Frame, threading.Thread):
     def update_graphical_table(self):
         self.optmizer.retrieve_experiments()
         self.table.model.df = self.optmizer.df
-        
+
         self.table.redraw()
         if not self.isUpdatingTable: return
         self.after(1000, self.update_graphical_table)

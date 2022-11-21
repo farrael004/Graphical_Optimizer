@@ -11,10 +11,8 @@ from sklearn.decomposition import PCA
 from lightgbm import LGBMRegressor
 
 from hyperoptimize import GraphicalOptimizer
-from hyperoptimize import App
 
 # Loading data
-
 df1 = pd.read_csv('california_housing_test.csv')
 df1 = df1.dropna()
 X = df1.copy()
@@ -37,7 +35,6 @@ X_val = pca.transform(X_val)  # Apply created normalization to new data
 
 
 # Creating model, prediction and performance functions
-
 def modelFunction(params, X_train, y_train):
     lightgbm = LGBMRegressor(objective='regression',
                              num_leaves=params['num_leaves'],
@@ -77,22 +74,20 @@ def performanceFunction(y_test, y_pred):
 
 
 # Creating hyperparameter dictionary
-
 hyperparameters_bayesian = {'n_estimators': [5000, 8000],  # Upper and lower bounds
                             'learning_rate': [0.001, 0.01],  # Upper and lower bounds
                             'max_bin': [100, 300],  # Upper and lower bounds
-                            'num_leaves': [3, 12],  # Categorical bounds
+                            'num_leaves': [3, 12],  # Upper and lower bounds
                             'bagging_freq': [2, 8], }  # Upper and lower bounds
 
-hyperparameters_grid_and_random = {'n_estimators': range(5000, 8000, 1000),  # Upper and lower bounds
-                                   'learning_rate': np.linspace(0.001, 0.01, 10),  # Upper and lower bounds
-                                   'max_bin': range(100, 300, 50),  # Upper and lower bounds
-                                   'num_leaves': range(3, 12, 3),  # Categorical bounds
-                                   'bagging_freq': range(2, 8, 2), }  # Upper and lower bounds
+hyperparameters_grid_and_random = {'n_estimators': range(5000, 8000, 1000),  # Extensive list of possibilities
+                                   'learning_rate': np.linspace(0.001, 0.01, 10),  # Extensive list of possibilities
+                                   'max_bin': range(100, 300, 50),  # Extensive list of possibilities
+                                   'num_leaves': range(3, 12, 3),  # Extensive list of possibilities
+                                   'bagging_freq': range(2, 8, 2), }  # Extensive list of possibilities
 
 
-# Performing optimization
-
+# Creating functions that runs after and while the optimization runs.
 def runMeWhileOptimizing(opt: GraphicalOptimizer):
     # print(opt.df)
     # opt.app.after(1000, opt.app.concurrentFunction(opt))
@@ -108,7 +103,7 @@ def runMeAfterOptimizing(opt: GraphicalOptimizer):
     print("Best combination of hyperparameters are:")
     print(bestParams[6:])  # or opt.results.best_params_
 
-
+# Performing optimization
 opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PredictionFunction=predictionFunction,
                          PerformanceFunction=performanceFunction,

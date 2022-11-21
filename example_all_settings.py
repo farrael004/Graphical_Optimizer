@@ -37,7 +37,6 @@ X_val = pca.transform(X_val)  # Apply created normalization to new data
 
 
 # Creating model, prediction and performance functions
-
 def modelFunction(params, X_train, y_train):
     gbr = GradientBoostingRegressor(n_estimators=params['n_estimators'],
                                     learning_rate=params['learning_rate'],
@@ -74,7 +73,6 @@ def performanceFunction(y_test, y_pred):
 
 
 # Creating hyperparameter dictionary
-
 hyperparameters_bayesian = {'n_estimators': [5000, 6000],  # Upper and lower bounds
                             'learning_rate': [0.001, 0.01],  # Upper and lower bounds
                             'max_depth': [2, 6],  # Upper and lower bounds
@@ -82,20 +80,19 @@ hyperparameters_bayesian = {'n_estimators': [5000, 6000],  # Upper and lower bou
                             'min_samples_leaf': [1, 21],  # Upper and lower bounds
                             'min_samples_split': [2, 16], }  # Upper and lower bounds
 
-hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Upper and lower bounds
-                                   'learning_rate': np.linspace(0.001, 0.01, 10).tolist(),  # Upper and lower bounds
-                                   'max_depth': range(2, 6),  # Upper and lower bounds
-                                   'max_features': ['sqrt', 'log2'],  # Categorical bounds
-                                   'min_samples_leaf': range(1, 21),  # Upper and lower bounds
-                                   'min_samples_split': range(2, 16), }  # Upper and lower bounds
+hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Extensive list of possibilities
+                                   'learning_rate': np.linspace(0.001, 0.01, 10).tolist(),  # Extensive list of possibilities
+                                   'max_depth': range(2, 6),  # Extensive list of possibilities
+                                   'max_features': ['sqrt', 'log2'],  # Extensive list of possibilities
+                                   'min_samples_leaf': range(1, 21),  # Extensive list of possibilities
+                                   'min_samples_split': range(2, 16), }  # Extensive list of possibilities
 
 
-# Performing optimization
-
+# Creating functions that runs after and while the optimization runs.
 def runMeWhileOptimizing(opt: GraphicalOptimizer):
     print(opt.df)
 
-    #opt.app.after(1000, opt.app.concurrentFunction(opt))
+    # opt.app.after(1000, opt.app.concurrentFunction(opt))
     return
 
 
@@ -109,6 +106,7 @@ def runMeAfterOptimizing(opt: GraphicalOptimizer):
     print(bestParams[6:])
 
 
+# Performing optimization
 opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PredictionFunction=predictionFunction,
                          PerformanceFunction=performanceFunction,
@@ -119,7 +117,7 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          crossValidation=2,
                          maxNumOfParallelProcesses=-1,
                          parallelCombinations=2,
-                         createGUI=False,
+                         createGUI=True,
                          concurrentFunction=runMeWhileOptimizing,
                          completionFunction=runMeAfterOptimizing)
 

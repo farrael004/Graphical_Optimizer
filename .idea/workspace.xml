@@ -7,10 +7,11 @@
     <list default="true" id="84ce0ed1-8892-4ddc-9eff-1fe2025cc5c8" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_LGBM.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_LGBM.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_NN.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_NN.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_all_settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_all_settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/example_simple.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_simple.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hyperoptimize.py" beforeDir="false" afterPath="$PROJECT_DIR$/hyperoptimize.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizer_demonstration.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer_demonstration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizer_simple_demonstration.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizer_simple_demonstration.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/optimizing_the_optimizer_demonstration_simple.py" beforeDir="false" afterPath="$PROJECT_DIR$/optimizing_the_optimizer_demonstration_simple.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -47,7 +48,8 @@
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.OpenProjectViewOnStart&quot;: &quot;true&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;last_opened_file_path&quot;: &quot;C:/Users/Rafael/Documents/GitHub/Graphical_Optimizer&quot;
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/Rafael/Documents/GitHub/Graphical_Optimizer&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable&quot;
   }
 }</component>
   <component name="RecentsManager">

@@ -12,10 +12,8 @@ from keras import Sequential
 from keras.layers import Dense
 
 from hyperoptimize import GraphicalOptimizer
-from hyperoptimize import App
 
 # Loading data
-
 df1 = pd.read_csv('california_housing_test.csv')
 df1 = df1.dropna()
 X = df1.copy()
@@ -38,8 +36,6 @@ X_val = pca.transform(X_val)  # Apply created normalization to new data
 
 
 # Creating model, prediction and performance functions
-for i in range(0):
-    print(i)
 def modelFunction(params, X_train, y_train):
     model = Sequential()
     model.add(Dense(params['initial_neurons'], input_shape=(X_train.shape[1],)))
@@ -72,22 +68,20 @@ def performanceFunction(y_test, y_pred):
 
 
 # Creating hyperparameter dictionary
-
 hyperparameters_bayesian = {'initial_neurons': [1, 100],
                             'layers': [0, 3],
                             'neurons': [1, 100]}
 
 hyperparameters_grid_and_random = {'initial_neurons': range(1, 100, 10),
                                    'layers': range(0, 3),
-                                   'neurons': range(1,100, 10)}
+                                   'neurons': range(1, 100, 10)}
 
 
-# Performing optimization
-
+# Creating functions that runs after and while the optimization runs.
 def runMeWhileOptimizing(opt: GraphicalOptimizer):
-    #print(opt.df)
+    # print(opt.df)
 
-    #opt.app.after(1000, opt.app.concurrentFunction(opt))
+    # opt.app.after(1000, opt.app.concurrentFunction(opt))
     return
 
 
@@ -101,6 +95,7 @@ def runMeAfterOptimizing(opt: GraphicalOptimizer):
     print(bestParams[6:])
 
 
+# Performing optimization
 opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          PredictionFunction=predictionFunction,
                          PerformanceFunction=performanceFunction,
