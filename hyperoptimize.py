@@ -55,7 +55,7 @@ class EnhancedPlotViewer(PlotViewer):
             data = pd.DataFrame(data[columns].tolist(), index=data.index.tolist())
             data = data.transpose()
             data.columns = [f'Experiment {i + 1}' for i in data.columns.tolist()]
-        print(data)
+
         return super().replot(data)
 
 
