@@ -48,7 +48,7 @@ def modelFunction(params, X_train, y_train):
 
     model = gbr.fit(X_train, y_train)
 
-    train_score = {"Train score": [model.train_score_.tolist()[:1000]]}
+    train_score = {"Train score": [model.train_score_.tolist()[:1000]], "Test score": [model.train_score_.tolist()[:1000]]}
 
     return model, train_score
 

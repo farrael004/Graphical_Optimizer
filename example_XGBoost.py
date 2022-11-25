@@ -5,14 +5,15 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from hyperoptimize import GraphicalOptimizer
 
-# Read the data into a data frame
+# Loading data
+
 data = pd.read_csv('kc_house_data.csv')
 
 features = data.iloc[:, 3:].columns.tolist()
 target = data.iloc[:, 2].name
 
 y = data.loc[:, ['sqft_living', 'grade', target]].sort_values(target, ascending=True).values
-x = np.arange(y.shape[0])
+X = np.arange(y.shape[0])
 
 new_data = data[
     ['sqft_living', 'grade', 'sqft_above', 'sqft_living15', 'bathrooms', 'view', 'sqft_basement', 'lat', 'waterfront',

@@ -5,7 +5,8 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 from hyperoptimize import GraphicalOptimizer
 
-# Read the data into a data frame
+# Loading data
+
 data = pd.read_csv('kc_house_data.csv')
 
 features = data.iloc[:, 3:].columns.tolist()

@@ -1,3 +1,5 @@
+import pandas as pd
+
 from hyperoptimize import GraphicalOptimizer
 
 import matplotlib.pyplot as plt

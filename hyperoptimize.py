@@ -14,6 +14,8 @@ from itertools import product
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+from pandas import plotting
 
 from joblib import Parallel
 from sklearn.base import BaseEstimator, clone, is_classifier
@@ -35,7 +37,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import RandomizedSearchCV
 
 from tkinter import *
-from pandastable import Table, TableModel, config, PlotViewer
+from pandastable import Table, TableModel, config, PlotViewer, util
 import threading
 
 
@@ -46,17 +48,158 @@ class EnhancedPlotViewer(PlotViewer):
         data = self.table.getSelectedDataFrame()
 
         if type(data.iloc[0].values[0]) is list:
-            columns = data.columns.tolist()
-            if len(columns) == 1:
-                columns = columns[0]
-            else:
-                raise Exception("Cannot multiplot from more than one column.")
-
-            data = pd.DataFrame(data[columns].tolist(), index=data.index.tolist())
-            data = data.transpose()
-            data.columns = [f'Experiment {i + 1}' for i in data.columns.tolist()]
+            old_data = data.copy()
+            columns = old_data.columns.tolist()
+            data = pd.DataFrame()
+            
+            for column in columns:
+                if type(old_data[column].values[0]) is not list: continue
+                for i, values in enumerate(old_data[column].tolist()):
+                    data[f'{column} {i + 1}'] = values
 
         return super().replot(data)
+
+    def _doplot(self, data, ax, kind, subplots, errorbars, useindex, bw, yerr, kwargs):
+        """Core plotting method where the individual plot functions are called"""
+        
+        kwargs = kwargs.copy()
+        if self.style != None:
+            keargs = self._clearArgs(kwargs)
+
+        cols = data.columns
+        if kind == 'line':
+            data = data.sort_index()
+
+        rows = int(round(np.sqrt(len(data.columns)),0))
+        if len(data.columns) == 1 and kind not in ['pie']:
+            kwargs['subplots'] = 0
+        if 'colormap' in kwargs:
+            cmap = plt.cm.get_cmap(kwargs['colormap'])
+        else:
+            cmap = None
+        #change some things if we are plotting in b&w
+        styles = []
+        if bw == True and kind not in ['pie','heatmap']:
+            cmap = None
+            kwargs['color'] = 'k'
+            kwargs['colormap'] = None
+            styles = ["-","--","-.",":"]
+            if 'linestyle' in kwargs:
+                del kwargs['linestyle']
+
+        if subplots == 0:
+            layout = None
+        else:
+            layout=(rows,-1)
+
+        if errorbars == True and yerr == None:
+            yerr = data[data.columns[1::2]]
+            data = data[data.columns[0::2]]
+            yerr.columns = data.columns
+            plt.rcParams['errorbar.capsize']=4
+            #kwargs['elinewidth'] = 1
+
+        if kind == 'bar' or kind == 'barh':
+            if len(data) > 50:
+                ax.get_xaxis().set_visible(False)
+            if len(data) > 300:
+                self.showWarning('too many bars to plot')
+                return
+        if kind == 'scatter':
+            axs, sc = self.scatter(data, ax, **kwargs)
+            if kwargs['sharey'] == 1:
+                lims = self.fig.axes[0].get_ylim()
+                for a in self.fig.axes:
+                    a.set_ylim(lims)
+        elif kind == 'boxplot':
+            axs = data.boxplot(ax=ax, grid=kwargs['grid'],
+                               patch_artist=True, return_type='dict')
+            lw = kwargs['linewidth']
+            plt.setp(axs['boxes'], color='black', lw=lw)
+            plt.setp(axs['whiskers'], color='black', lw=lw)
+            plt.setp(axs['fliers'], color='black', marker='+', lw=lw)
+            clr = cmap(0.5)
+            for patch in axs['boxes']:
+                patch.set_facecolor(clr)
+            if kwargs['logy'] == 1:
+                ax.set_yscale('log')
+        elif kind == 'violinplot':
+            axs = self.violinplot(data, ax, kwargs)
+        elif kind == 'dotplot':
+            axs = self.dotplot(data, ax, kwargs)
+
+        elif kind == 'histogram':
+            #bins = int(kwargs['bins'])
+            axs = data.plot(kind='hist',layout=layout, ax=ax, **kwargs)
+        elif kind == 'heatmap':
+            if len(data) > 1000:
+                self.showWarning('too many rows to plot')
+                return
+            axs = self.heatmap(data, ax, kwargs)
+        elif kind == 'bootstrap':
+            axs = plotting.bootstrap_plot(data)
+        elif kind == 'scatter_matrix':
+            axs = pd.scatter_matrix(data, ax=ax, **kwargs)
+        elif kind == 'hexbin':
+            x = cols[0]
+            y = cols[1]
+            axs = data.plot(x,y,ax=ax,kind='hexbin',gridsize=20,**kwargs)
+        elif kind == 'contour':
+            xi,yi,zi = self.contourData(data)
+            cs = ax.contour(xi,yi,zi,15,linewidths=.5,colors='k')
+            #plt.clabel(cs,fontsize=9)
+            cs = ax.contourf(xi,yi,zi,15,cmap=cmap)
+            #ax.scatter(x,y,marker='o',c='b',s=5)
+            self.fig.colorbar(cs,ax=ax)
+            axs = ax
+        elif kind == 'imshow':
+            xi,yi,zi = self.contourData(data)
+            im = ax.imshow(zi, interpolation="nearest",
+                           cmap=cmap, alpha=kwargs['alpha'])
+            self.fig.colorbar(im,ax=ax)
+            axs = ax
+        elif kind == 'pie':
+            if useindex == False:
+                x=data.columns[0]
+                data.set_index(x,inplace=True)
+            if kwargs['legend'] == True:
+                lbls=None
+            else:
+                lbls = list(data.index)
+
+            axs = data.plot(ax=ax,kind='pie', labels=lbls, layout=layout,
+                            autopct='%1.1f%%', subplots=True, **kwargs)
+            if lbls == None:
+                axs[0].legend(labels=data.index, loc='best')
+        elif kind == 'venn':
+            axs = self.venn(data, ax, **kwargs)
+        elif kind == 'radviz':
+            if kwargs['marker'] == '':
+                kwargs['marker'] = 'o'
+            col = data.columns[-1]
+            axs = pd.plotting.radviz(data, col, ax=ax, **kwargs)
+        else:
+            #line, bar and area plots
+            if useindex == False:
+                x=data.columns[0]
+                data.set_index(x,inplace=True)
+            if len(data.columns) == 0:
+                msg = "Not enough data.\nIf 'use index' is off select at least 2 columns"
+                self.showWarning(msg)
+                return
+            #adjust colormap to avoid white lines
+            if cmap != None:
+                cmap = util.adjustColorMap(cmap, 0.15,1.0)
+                del kwargs['colormap']
+            if kind == 'barh':
+                kwargs['xerr']=yerr
+                yerr=None
+                
+            kwargs.pop('subplots')
+            axs = data.plot(ax=ax, layout=layout, yerr=yerr, style=styles, cmap=cmap, **kwargs)
+        self._setAxisRanges()
+        self._setAxisTickFormat()
+        return axs
 
 
 class EnhancedTable(Table):
@@ -612,8 +755,9 @@ class WrapperEstimator(BaseEstimator):
         try:
             self.scores[self.performanceParameter]
         except:
-            raise AttributeError("Could not find the chosen performance parameter in the dictionary of performance "
-                                 "metrics. Check if the GraphicalOptimizer object has a valid performanceParameter.")
+            raise AttributeError(f'Could not find the chosen performance parameter "{self.performanceParameter}" in '
+                                 'the dictionary of performance metrics. Check if the GraphicalOptimizer object has a '
+                                 'valid performanceParameter.')
         print_status(self)
         return self.scores[self.performanceParameter]
 
