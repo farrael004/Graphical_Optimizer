@@ -48,7 +48,7 @@ def modelFunction(params, X_train, y_train):
 
     model = gbr.fit(X_train, y_train)
 
-    train_score = {"Train score": [model.train_score_.tolist()[:1000]], "Test score": [model.train_score_.tolist()[:1000]]}
+    train_score = {"Train loss": [model.train_score_.tolist()[:1000]], "Test loss": [model.train_score_.tolist()[:1000]]}
 
     return model, train_score
 
@@ -92,7 +92,7 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Ex
 def runMeWhileOptimizing(opt: GraphicalOptimizer):
     print(opt.df)
 
-    # opt.app.after(1000, opt.app.concurrentFunction(opt))
+    # Not yet properly implemented
     return
 
 
@@ -104,6 +104,7 @@ def runMeAfterOptimizing(opt: GraphicalOptimizer):
     print(f'Best performance: {bestParams["Adjusted R^2 Score"]}')
     print("Best combination of hyperparameters are:")
     print(bestParams[6:])
+    # Can also use opt.results.best_params_ and opt.results.best_score_
 
 
 # Performing optimization
@@ -119,6 +120,7 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          parallelCombinations=2,
                          createGUI=True,
                          concurrentFunction=runMeWhileOptimizing,
-                         completionFunction=runMeAfterOptimizing)
+                         completionFunction=runMeAfterOptimizing,
+                         verbose=1)
 
 opt.fit(X_train, y_train)

@@ -5,17 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="84ce0ed1-8892-4ddc-9eff-1fe2025cc5c8" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/.name" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/Graphical_Optimizer.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/Graphical_Optimizer.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Simple_Graphical_Optimizer.ipynb" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/example_Random_Forest.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_Random_Forest.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example_XGBoost.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_XGBoost.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/example_all_settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_all_settings.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/example_simple.py" beforeDir="false" afterPath="$PROJECT_DIR$/example_simple.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/hyperoptimize.py" beforeDir="false" afterPath="$PROJECT_DIR$/hyperoptimize.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/temp/xFZmobhiujsESdwjeFuS.json" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -816,7 +816,8 @@ class GraphicalOptimizer:
                  seed=0,
                  createGUI=True,
                  concurrentFunction: Callable = None,
-                 completionFunction: Callable = None):
+                 completionFunction: Callable = None,
+                 verbose=0):
 
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
@@ -831,6 +832,7 @@ class GraphicalOptimizer:
         self.seed = seed
         self.concurrentFunction = concurrentFunction
         self.completionFunction = completionFunction
+        self.verbose=verbose
 
         self.isUpdatingTable = True
         self.results = None
@@ -881,7 +883,7 @@ class GraphicalOptimizer:
                              self.performanceParameter, self.tempPath, self.id),
             hyperparameters,
             random_state=self.seed,
-            verbose=0,
+            verbose=self.verbose,
             n_iter=self.maxNumCombinations,
             cv=self.crossValidation,
             n_jobs=self.maxNumOfParallelProcesses,
@@ -902,7 +904,7 @@ class GraphicalOptimizer:
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
                              self.performanceParameter, self.tempPath, self.id),
             hyperparameters,
-            verbose=0,
+            verbose=self.verbose,
             cv=self.crossValidation,
             n_jobs=self.maxNumOfParallelProcesses,
         )
@@ -932,7 +934,7 @@ class GraphicalOptimizer:
                              self.performanceParameter, self.tempPath, self.id),
             hyperparameters,
             random_state=self.seed,
-            verbose=0,
+            verbose=self.verbose,
             n_iter=self.maxNumCombinations,
             cv=self.crossValidation,
             n_jobs=self.maxNumOfParallelProcesses,
