@@ -10,88 +10,85 @@ using ``pandastable`` (a python GUI used for pandas data frame visualization).
 
 The ``fit`` method can be used to begin the optimization.
 
-Parameters
+## Parameters
 ----------
-ModelFunction: Model training function.
+- ``ModelFunction``: Model training function.
   
-    The function that implements the model that takes different hyperparameters for experimenting.
-    This function is assumed to return the model so it can be used for making predictions and measuring
-    its performance. Optinally, a second output for displaying mid training performance can be included
-    when returning the function. This second output must be a dictionary and must be able to be JSON
-    serializable.
+The function that implements the model that takes different hyperparameters for experimenting.
+This function is assumed to return the model so it can be used for making predictions and measuring
+its performance. Optinally, a second output for displaying mid training performance can be included
+when returning the function. This second output must be a dictionary and must be able to be JSON
+serializable.
 
-PredictionFunction: Prediction function.
+- ``PredictionFunction``: Prediction function.
 
-    The function that takes the model function and input data to make a prediction.
-    This function is assumed to return the prediction so it can be used for calculating the prediction
-    performance.
+The function that takes the model function and input data to make a prediction.
+This function is assumed to return the prediction so it can be used for calculating the prediction
+performance.
 
-PerformanceFunction: Performance calculation function.
+- ``PerformanceFunction``: Performance calculation function.
 
-    The function that takes a prediction by the model to compare its performance with labeled data.
-    This function is assumed to return the scores in type dictionary.
-    hyperparameters
+The function that takes a prediction by the model to compare its performance with labeled data.
+This function is assumed to return the scores in type dictionary.
+hyperparameters.
 
-hyperparameters: All possible parameters.
+- ``hyperparameters``: All possible parameters.
 
-    A dictionary where the keys are defining the parameter name. The value for this key will define value
-    boundaries. Must take different forms when using bayesian search as opposed to using grid or random
-    search.
+A dictionary where the keys are defining the parameter name. The value for this key will define value
+boundaries. Must take different forms when using bayesian search as opposed to using grid or random
+search.
 
-performanceParameter: Main model's performance indicator.
+- ``performanceParameter``: Main model's performance indicator.
 
-    A string that corresponds to which key of the ``PerformanceFunction``'s output to use as the model's
-    score. This setting is important when performing Bayesian optimization as it determines which metric
-    will be MAXIMIZED.
+A string that corresponds to which key of the ``PerformanceFunction``'s output to use as the model's
+score. This setting is important when performing Bayesian optimization as it determines which metric
+will be MAXIMIZED.
 
-optimizer: The optimizer search method to be used.
+- ``optimizer``: The optimizer search method to be used.
 
-    A string that defines which search algorithm to use. ``bayesian`` will use bayesian search. ``grid``
-    will iterate through all possible hyperparameter combinations. ``random`` will chose a random
-    selection of possible combinations up to the maximum number of combinations.
+A string that defines which search algorithm to use. ``bayesian`` will use bayesian search. ``grid``
+will iterate through all possible hyperparameter combinations. ``random`` will chose a random
+selection of possible combinations up to the maximum number of combinations.
 
-maxNumCombinatios: Maximum number of combinations.
+- ``maxNumCombinatios``: Maximum number of combinations.
 
-    An integer that determines how many hyperparameter combinations to search for. This argument only
-    affects random and bayesian search. Grid search will always try all hyperparameter combinations. The
-    total number of experiments that the optimizer will run is ``maxNumCombinatios * crossValidation``.
+An integer that determines how many hyperparameter combinations to search for. This argument only
+affects random and bayesian search. Grid search will always try all hyperparameter combinations. The
+total number of experiments that the optimizer will run is ``maxNumCombinatios * crossValidation``.
 
-crossValidation: Number of cross validation folds.
+- ``crossValidation``: Number of cross validation folds.
 
-    An integer that determines how many times the dataset will be split for performing cross validation on
-    each hyperparameter combination.
+An integer that determines how many times the dataset will be split for performing cross validation on
+each hyperparameter combination.
 
-maxNumOfParallelProcesses: Number of experiments to run in parallel.
+- ``maxNumOfParallelProcesses``: Number of experiments to run in parallel.
 
-    This integer determines how many parallel processes will be created for training multiple experiments
-    at the same time. -1 will create the maximum possible number of parallel processes.
+This integer determines how many parallel processes will be created for training multiple experiments at the same time. -1 will create the maximum possible number of parallel processes.
 
-parallelCombinations: Number of simultaneous combinations to be tested.
+- ``parallelCombinations``: Number of simultaneous combinations to be tested.
 
-    This setting only affects bayesian search. This integer determines how many parallel combinations can
-    be tested in bayesian search. If many combinations are tested simultaneously, the bayesian algorithm
-    may perform worse than if it tested sequentially each individual combination.
+This setting only affects bayesian search. This integer determines how many parallel combinations can be tested in bayesian search. If many combinations are tested simultaneously, the bayesian algorithm may perform worse than if it tested sequentially each individual combination.
 
-seed: Seed for cross validation.
+- ``seed``: Seed for cross validation.
 
-    An integer for determining the cross validation random state.
+An integer for determining the cross validation random state.
 
-createGUI: Determines whether GUI should be created or not.
+- ``createGUI``: Determines whether GUI should be created or not.
 
-    A boolean for allowing the App object to be created. If True, the optimizer window will be created. If
-    False, the GUI will not be instantiated. The optimizer will function the same way on the background
-    regardless of the presence of the GUI.
+A boolean for allowing the App object to be created. If True, the optimizer window will be created. If
+False, the GUI will not be instantiated. The optimizer will function the same way on the background
+regardless of the presence of the GUI.
 
-concurrentFunction: A function that runs simultaneous to the optimization process.
+- ``concurrentFunction``: A function that runs simultaneous to the optimization process.
 
-    A function that will be called on the same thread as the GUI whenever an experiment completes. 
+A function that will be called on the same thread as the GUI whenever an experiment completes. 
 
-completionFunction: A function that runs after the hyperparameter search is over.
+- ``completionFunction``: A function that runs after the hyperparameter search is over.
 
-    A function that will be called as soon as all experiments are completed. This can be used for code to run
-    parallel to the GUI when hyperparameter search completes.
+A function that will be called as soon as all experiments are completed. This can be used for code to run
+parallel to the GUI when hyperparameter search completes.
 
-verbose: Optimizer verbosity.
+- ``verbose``: Optimizer verbosity.
 
-    An integer that controls how verbose the optimizer will be when queuing new experiments.
-    verbose=0 will display no messages. verbose=1 will display messages about the queued experiments.
+An integer that controls how verbose the optimizer will be when queuing new experiments.
+verbose=0 will display no messages. verbose=1 will display messages about the queued experiments.
