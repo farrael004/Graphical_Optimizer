@@ -11,7 +11,7 @@ using ``pandastable`` (a python GUI used for pandas data frame visualization).
 The ``fit`` method can be used to begin the optimization.
 
 ## Parameters
-----------
+
 - ``ModelFunction``: Model training function.
   
 The function that implements the model that takes different hyperparameters for experimenting.
