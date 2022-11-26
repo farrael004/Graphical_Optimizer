@@ -2,7 +2,7 @@
 
 This project intends to create a hyperparameter graphical optimizer for python inspired by MATLAB's Experiment Manager.
 
-Currently this is an alpha implementation that requires pandastable and sckit-optimize installed as dependencies.
+Currently this is an alpha implementation that requires pandastable and scikit-optimize installed as dependencies.
 
 The GraphicalOptimizer class creates the object that optimizes a given model using a set of hyperparameters.
 The hyperparameters along with the resulting model performance metrics are displayed
