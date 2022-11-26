@@ -90,10 +90,9 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Ex
 
 # Creating functions that runs after and while the optimization runs.
 def runMeWhileOptimizing(opt: GraphicalOptimizer):
-    print(opt.df)
-
-    # Not yet properly implemented
-    return
+    print('---------------------------')
+    print('Experiment completed:')
+    print(f'Adjusted R^2 Score: {opt.df.iloc[-1]["Adjusted R^2 Score"]}')
 
 
 def runMeAfterOptimizing(opt: GraphicalOptimizer):
@@ -104,7 +103,12 @@ def runMeAfterOptimizing(opt: GraphicalOptimizer):
     print(f'Best performance: {bestParams["Adjusted R^2 Score"]}')
     print("Best combination of hyperparameters are:")
     print(bestParams[6:])
-    # Can also use opt.results.best_params_ and opt.results.best_score_
+    print('---------------------------')
+    print('Best performance:')
+    print(opt.results.best_score_)
+    print("Best combination of hyperparameters are:")
+    print(opt.results.best_params_)
+    
 
 
 # Performing optimization

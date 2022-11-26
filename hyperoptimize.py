@@ -43,7 +43,9 @@ import threading
 
 # Modifying package classes
 
-class EnhancedPlotViewer(PlotViewer):
+class _EnhancedPlotViewer(PlotViewer):
+    """Class for overwritting the default PlotViewer from pandastable."""
+    
     def replot(self, data=None):
         data = self.table.getSelectedDataFrame()
 
@@ -202,18 +204,20 @@ class EnhancedPlotViewer(PlotViewer):
         return axs
 
 
-class EnhancedTable(Table):
-
+class _EnhancedTable(Table):
+    """Class for overwritting the default Table from pandastable."""
+    
     def plotSelected(self):
         if not hasattr(self, 'pf') or self.pf == None:
-            self.pf = EnhancedPlotViewer(table=self)
+            self.pf = _EnhancedPlotViewer(table=self)
         else:
             if type(self.pf.main) is Toplevel:
                 self.pf.main.deiconify()
         return super().plotSelected()
 
 
-class EnhancedBaseSearchCV(BaseSearchCV):
+class _EnhancedBaseSearchCV(BaseSearchCV):
+    """Class for overwritting the default BaseSearchCV from sklearn."""
 
     def fit(self, X, y=None, *, groups=None, **fit_params):
 
@@ -375,7 +379,9 @@ class EnhancedBaseSearchCV(BaseSearchCV):
         return self
 
 
-class EnhancedBayesianSearchCV(EnhancedBaseSearchCV):
+class _EnhancedBayesianSearchCV(_EnhancedBaseSearchCV):
+    """Class derived from the default BayesianSearchCV from sklearn."""    
+    
     def __init__(self, estimator, search_spaces, optimizer_kwargs=None,
                  n_iter=50, scoring=None, fit_params=None, n_jobs=1,
                  n_points=1, iid='deprecated', refit=True, cv=None, verbose=0,
@@ -399,7 +405,7 @@ class EnhancedBayesianSearchCV(EnhancedBaseSearchCV):
                  "and will be ignored.")
         self.iid = iid  # For sklearn repr pprint
 
-        super(EnhancedBayesianSearchCV, self).__init__(
+        super(_EnhancedBayesianSearchCV, self).__init__(
             estimator=estimator, scoring=scoring,
             n_jobs=n_jobs, refit=refit, cv=cv, verbose=verbose,
             pre_dispatch=pre_dispatch, error_score=error_score,
@@ -618,7 +624,9 @@ class EnhancedBayesianSearchCV(EnhancedBaseSearchCV):
             self._optim_results.append(optim_result)
 
 
-class EnhancedGridSearchCV(EnhancedBaseSearchCV):
+class _EnhancedGridSearchCV(_EnhancedBaseSearchCV):
+    """Class derived from the default GridSearchCV from sklearn."""
+
     _required_parameters = ["estimator", "param_grid"]
 
     def __init__(
@@ -653,7 +661,9 @@ class EnhancedGridSearchCV(EnhancedBaseSearchCV):
         evaluate_candidates(ParameterGrid(self.param_grid))
 
 
-class EnhancedRandomSearchCV(EnhancedBaseSearchCV):
+class _EnhancedRandomSearchCV(_EnhancedBaseSearchCV):
+    """Class derived from the default GridSearchCV from sklearn."""
+    
     _required_parameters = ["estimator", "param_distributions"]
 
     def __init__(
@@ -696,12 +706,12 @@ class EnhancedRandomSearchCV(EnhancedBaseSearchCV):
         )
 
 
-# Function that will write to disk experiment results
-
-def print_status(self):  # Shows the parameters used and accuracy attained of the search so far.
+def print_status(self):
+    """Publishes the parameters and performance attained in an experiment."""
+    
     results = dict(self.scores, **self.params)
     json_object = json.dumps(results, indent=4)
-    tempfile = self.id + ''.join(random.choice(string.ascii_letters) for i in range(10))
+    tempfile = self._id + ''.join(random.choice(string.ascii_letters) for i in range(10))
     filePath = os.path.join(self.tempPath, tempfile)
 
     with open(filePath + ".json", "w") as outfile:
@@ -711,13 +721,16 @@ def print_status(self):  # Shows the parameters used and accuracy attained of th
 # Custom Estimator wrapper
 
 class WrapperEstimator(BaseEstimator):
-    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, tempPath, id):
+    """A class to wrap to create a sklearn estimator using the model, prediction and
+    performance functions defined in the GraphicalOptimizer object."""
+    
+    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, tempPath, _id):
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
         self.PerformanceFunction = PerformanceFunction
         self.performanceParameter = performanceParameter
         self.tempPath = tempPath
-        self.id = id
+        self._id = _id
 
         self.midTrainingPerformance = {}
 
@@ -792,28 +805,73 @@ class GraphicalOptimizer:
     PerformanceFunction: Performance calculation function.
     The function that takes a prediction by the model to compare its performance with labeled data.
     This function is assumed to return the scores in type dictionary.
+    hyperparameters
+    
+    hyperparameters: All possible parameters.
+    A dictionary where the keys are defining the parameter name. The value for this key will define value
+    boundaries. Must take different forms when using bayesian search as opposed to using grid or random
+    search.
     
     performanceParameter: Main model's performance indicator.
     A string that corresponds to which key of the ``PerformanceFunction``'s output to use as the model's
     score. This setting is important when performing Bayesian optimization as it determines which metric
     will be MAXIMIZED.
+    
+    optimizer: The optimizer search method to be used.
+    A string that defines which search algorithm to use. ``bayesian`` will use bayesian search. ``grid``
+    will iterate through all possible hyperparameter combinations. ``random`` will chose a random
+    selection of possible combinations up to the maximum number of combinations.
+    
+    maxNumCombinatios: Maximum number of combinations.
+    An integer that determines how many hyperparameter combinations to search for. This argument only
+    affects random and bayesian search. Grid search will always try all hyperparameter combinations. The
+    total number of experiments that the optimizer will run is ``maxNumCombinatios * crossValidation``.
+    
+    crossValidation: Number of cross validation folds.
+    An integer that determines how many times the dataset will be split for performing cross validation on
+    each hyperparameter combination.
+    
+    maxNumOfParallelProcesses: Number of experiments to run in parallel.
+    This integer determines how many parallel processes will be created for training multiple experiments
+    at the same time. -1 will create the maximum possible number of parallel processes.
+    
+    parallelCombinations: Number of simultaneous combinations to be tested.
+    This setting only affects bayesian search. This integer determines how many parallel combinations can
+    be tested in bayesian search. If many combinations are tested simultaneously, the bayesian algorithm
+    may perform worse than if it tested sequentially each individual combination.
+    
+    seed: Seed for cross validation.
+    An integer for determining the cross validation random state.
+    
+    createGUI: Determines whether GUI should be created or not.
+    A boolean for allowing the App object to be created. If True, the optimizer window will be created. If
+    False, the GUI will not be instantiated. The optimizer will function the same way on the background
+    regardless of the presence of the GUI.
+    
+    concurrentFunction: A function that runs simultaneous to the optimization process.
+    A function that will be called on the same thread as the GUI whenever an experiment completes. 
+    
+    completionFunction: A function that runs after the hyperparameter search is over.
+    A function that will be called as soon as all experiments are completed. This can be used for code to run
+    parallel to the GUI when hyperparameter search completes.
+    
+    verbose: Optimizer verbosity.
+    An integer that controls how verbose the optimizer will be when queuing new experiments.
+    verbose=0 will display no messages. verbose=1 will display messages about the queued experiments.
     """
 
     def __init__(self,
-                 ModelFunction: Callable,  # Function that defines and trains models.
-                 PredictionFunction: Callable,  # Function that predicts based on the model.
-                 PerformanceFunction: Callable[..., dict],  # Fuction that calculates trained models performances.
+                 ModelFunction: Callable,
+                 PredictionFunction: Callable,
+                 PerformanceFunction: Callable[..., dict],
                  hyperparameters: dict,
-                 # Dictionary of all possible parameters with keys defining the parameter name and value defining value boundaries.
                  performanceParameter: str,
-                 optimizer: str = 'bayesian',  # Parameter that determines between 'grid', 'bayesian', and 'random'
-                 maxNumCombinations: int = 100,  # Maximum number of combinations.
+                 optimizer: str = 'bayesian',
+                 maxNumCombinations: int = 100,
                  crossValidation: int = 30,
-                 # Splits train data and trains the same model on each split for calculating agregate performance.
                  maxNumOfParallelProcesses: int = -1,
-                 # Number of parallel experiments to run (-1 will set to maximum allowed).
-                 parallelCombinations: int = 3,  # How many simultaneous combinations should be used.
-                 seed=0,
+                 parallelCombinations: int = 3,
+                 seed=None,
                  createGUI=True,
                  concurrentFunction: Callable = None,
                  completionFunction: Callable = None,
@@ -834,12 +892,15 @@ class GraphicalOptimizer:
         self.completionFunction = completionFunction
         self.verbose=verbose
 
-        self.isUpdatingTable = True
         self.results = None
         self.df = pd.DataFrame()
-        self.id = ''.join(random.choice(string.ascii_letters) for i in range(10))
+        self.tempPath = os.path.join(os.getcwd(), "temp") # Folder to which the experiment results will be written to.
+        
+        self._isUpdatingTable = True
+        self._id = ''.join(
+            random.choice(string.ascii_letters)
+            for i in range(10)) # Used to tag the experiment results files created by this object.
 
-        self.tempPath = os.path.join(os.getcwd(), "temp")
         try:
             # shutil.rmtree(self.tempPath)
             pass
@@ -849,7 +910,7 @@ class GraphicalOptimizer:
         if createGUI:
             self.app = App(self, concurrentFunction=self.concurrentFunction)
         else:
-            t = threading.Thread(target=self.update_results)
+            t = threading.Thread(target=self._update_results)
             t.start()
 
     # Optimizer types
@@ -857,6 +918,16 @@ class GraphicalOptimizer:
     ## Bayesian
 
     def BayesianOpt(self, X_train, y_train):
+        """Function used to perform bayesian search.
+
+        Args:
+            X_train (Any type): Input for training data. Must be in a form
+            that can be split for cross validation.
+            
+            y_train (Any type): Label for training data. Must be in a form
+            that can be split for cross validation.
+        """
+        
         hyperparameters = {}
         for k in self.hyperparameters:
             v = self.hyperparameters[k]
@@ -873,14 +944,14 @@ class GraphicalOptimizer:
                     "Hyperparameters in bayesian search of float or int type must be in the form of [lower_bound, "
                     "higher_bound].")
 
-            if type(v[0]) is float or type(v[-1]) is float:
-                hyperparameters[k] = Real(v[0], v[-1])
+            if type(v[0]) is float or type(v[1]) is float:
+                hyperparameters[k] = Real(v[0], v[1])
             else:
-                hyperparameters[k] = Integer(v[0], v[-1])
+                hyperparameters[k] = Integer(v[0], v[1])
 
-        bayReg = EnhancedBayesianSearchCV(
+        bayReg = _EnhancedBayesianSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath, self.id),
+                             self.performanceParameter, self.tempPath, self._id),
             hyperparameters,
             random_state=self.seed,
             verbose=self.verbose,
@@ -897,12 +968,22 @@ class GraphicalOptimizer:
     ## Grid
 
     def GridOpt(self, X_train, y_train):
-        hyperparameters = self.gridAndRandomHyperparameters()
-        self.checkNumberOfCombinations(hyperparameters)
+        """Function used to perform grid search.
 
-        grid = EnhancedGridSearchCV(
+        Args:
+            X_train (Any type): Input for training data. Must be in a form
+            that can be split for cross validation.
+            
+            y_train (Any type): Label for training data. Must be in a form
+            that can be split for cross validation.
+        """
+        
+        hyperparameters = self._gridAndRandomHyperparameters()
+        self._checkNumberOfCombinations(hyperparameters)
+
+        grid = _EnhancedGridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath, self.id),
+                             self.performanceParameter, self.tempPath, self._id),
             hyperparameters,
             verbose=self.verbose,
             cv=self.crossValidation,
@@ -913,7 +994,7 @@ class GraphicalOptimizer:
 
         self._finalizeOptimization()
 
-    def checkNumberOfCombinations(self, hyperparameters):
+    def _checkNumberOfCombinations(self, hyperparameters):
         items = 1
         for k in hyperparameters:
             items *= len(hyperparameters[k])
@@ -927,11 +1008,21 @@ class GraphicalOptimizer:
     ## Random
 
     def RandomOpt(self, X_train, y_train):
-        hyperparameters = self.gridAndRandomHyperparameters()
+        """Function used to perform random search.
 
-        randomSearch = EnhancedRandomSearchCV(
+        Args:
+            X_train (Any type): Input for training data. Must be in a form
+            that can be split for cross validation.
+            
+            y_train (Any type): Label for training data. Must be in a form
+            that can be split for cross validation.
+        """
+        
+        hyperparameters = self._gridAndRandomHyperparameters()
+
+        randomSearch = _EnhancedRandomSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath, self.id),
+                             self.performanceParameter, self.tempPath, self._id),
             hyperparameters,
             random_state=self.seed,
             verbose=self.verbose,
@@ -944,7 +1035,7 @@ class GraphicalOptimizer:
 
         self._finalizeOptimization()
 
-    def gridAndRandomHyperparameters(self):
+    def _gridAndRandomHyperparameters(self):
         hyperparameters = {}
         for k in self.hyperparameters:
             v = self.hyperparameters[k]
@@ -963,11 +1054,13 @@ class GraphicalOptimizer:
                 hyperparameters[k] = [item for item in v]
         return hyperparameters
 
-    def retrieve_experiments(self):
+    def _retrieve_experiments(self):
+        """Function that writes to disk experiment results."""
+        
         try:
             for filename in os.listdir(self.tempPath):
                 tempfile = os.path.join(self.tempPath, filename)
-                if filename[:10] != self.id: continue  # check if file originates from this optimization session
+                if filename[:10] != self._id: continue  # check if file originates from this optimization session
 
                 with open(tempfile, 'r') as openfile:
                     try:
@@ -977,20 +1070,20 @@ class GraphicalOptimizer:
                     else:
                         results = pd.DataFrame(json_object, index=[0])
                         self.df = pd.concat([self.df, results], ignore_index=True, axis=0)
+                        if self.concurrentFunction: self.concurrentFunction(self)
                 try:
                     os.remove(tempfile)
                 except:
                     warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
 
         except FileNotFoundError:
-            if self.isUpdatingTable:
+            if self._isUpdatingTable:
                 raise FileNotFoundError(f"temp folder at {self.tempPath} not found.")
             pass
 
-    def update_results(self):
-        while (self.isUpdatingTable):
-            self.retrieve_experiments()
-            if self.concurrentFunction: self.concurrentFunction(self)
+    def _update_results(self):
+        while (self._isUpdatingTable):
+            self._retrieve_experiments()
             time.sleep(1)
 
     def fit(self, X_train, y_train):
@@ -1004,7 +1097,7 @@ class GraphicalOptimizer:
             y_train (Any type): Training labels to be used by the model function.
 
         Raises:
-            ValueError: Will raise and error if the ``optimizer`` setting is anything
+            ValueError: Will raise an error if the ``optimizer`` setting is anything
             but one of the following strings: "bayesian", "grid", or "random".
         """
         match self.optimizer:
@@ -1023,13 +1116,13 @@ class GraphicalOptimizer:
         except:
             pass
 
-        self.isUpdatingTable = False
+        self._isUpdatingTable = False
         if hasattr(self, 'app'):
-            self.app.isUpdatingTable = False
+            self.app._isUpdatingTable = False
             self.app.update_graphical_table()
             self.df = self.app.table.model.df
         else:
-            self.retrieve_experiments()
+            self._retrieve_experiments()
 
         try:
             # shutil.rmtree(self.tempPath)
@@ -1043,13 +1136,22 @@ class GraphicalOptimizer:
 
 # Creating app class
 class App(Frame, threading.Thread):
+    """Class for creating the pandastable app for displaying results.
+    
+    When an object of this class is created, a pandastable window will open with an
+    empty data frame. This data frame can be changed by accessing App.table.model.df
+    
+    For updating the pandastable renderer so changes to the data frame are visible,
+    simply call App.table.redraw().
+    """
+    
     def __init__(self, optimizer: GraphicalOptimizer, parent=None, concurrentFunction: Callable = None):
         self.tempPath = optimizer.tempPath
         self.optmizer = optimizer
-        self.id = optimizer.id
+        self._id = optimizer._id
         self.parent = parent
         self.concurrentFunction = concurrentFunction
-        self.isUpdatingTable = True
+        self._isUpdatingTable = True
         threading.Thread.__init__(self)
         self.start()
 
@@ -1057,11 +1159,11 @@ class App(Frame, threading.Thread):
         self.root.quit()
 
     def update_graphical_table(self):
-        self.optmizer.retrieve_experiments()
+        self.optmizer._retrieve_experiments()
         self.table.model.df = self.optmizer.df
 
         self.table.redraw()
-        if not self.isUpdatingTable: return
+        if not self._isUpdatingTable: return
         self.after(1000, self.update_graphical_table)
 
     def run(self):
@@ -1072,7 +1174,7 @@ class App(Frame, threading.Thread):
         self.f = Frame(self.main)
         self.f.pack(fill=BOTH, expand=1)
         df = pd.DataFrame()
-        self.table = pt = EnhancedTable(self.f, dataframe=df,
+        self.table = pt = _EnhancedTable(self.f, dataframe=df,
                                         showtoolbar=True, showstatusbar=True)
         pt.show()
         options = {'colheadercolor': 'green', 'floatprecision': 5}  # set some options
@@ -1080,7 +1182,5 @@ class App(Frame, threading.Thread):
         pt.show()
 
         self.after(1000, self.update_graphical_table)
-        if self.concurrentFunction is not None:
-            self.after(1000, self.concurrentFunction(self.optmizer))
 
         self.mainloop()
