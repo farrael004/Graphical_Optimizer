@@ -1,8 +1,8 @@
-# Creating model, predict and performance functions
 import os
 import json
 import random
 import string
+import requests
 import time
 from warnings import warn
 
@@ -706,16 +706,30 @@ class _EnhancedRandomSearchCV(_EnhancedBaseSearchCV):
         )
 
 
-def print_status(self):
-    """Publishes the parameters and performance attained in an experiment."""
+def write_experiment_to_file(self, json_object):
+    """Writes an experiment result in json format to a file"""
     
-    results = dict(self.scores, **self.params)
-    json_object = json.dumps(results, indent=4)
     tempfile = self._id + ''.join(random.choice(string.ascii_letters) for i in range(10))
     filePath = os.path.join(self.tempPath, tempfile)
 
     with open(filePath + ".json", "w") as outfile:
         outfile.write(json_object)
+
+
+def print_status(self):
+    """Publishes the parameters and performance attained in an experiment."""
+    
+    results = dict(self.scores, **self.params)
+    json_object = json.dumps(results, indent=4)
+    write_experiment_to_file(self, json_object)
+    
+    if self.url == None: return
+    
+    try:
+        res = requests.post(self.url + '/api/data', json_object)
+        res.raise_for_status()
+    except Exception as e:
+        print(e)
 
 
 # Custom Estimator wrapper
@@ -724,11 +738,12 @@ class WrapperEstimator(BaseEstimator):
     """A class to wrap to create a sklearn estimator using the model, prediction and
     performance functions defined in the GraphicalOptimizer object."""
     
-    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, tempPath, _id):
+    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, url, tempPath, _id):
         self.ModelFunction = ModelFunction
         self.PredictionFunction = PredictionFunction
         self.PerformanceFunction = PerformanceFunction
         self.performanceParameter = performanceParameter
+        self.url = url
         self.tempPath = tempPath
         self._id = _id
 
@@ -855,6 +870,8 @@ class GraphicalOptimizer:
     A function that will be called as soon as all experiments are completed. This can be used for code to run
     parallel to the GUI when the hyperparameter search completes.
     
+    dashboard_url: A string that directs to a remote dashboard where the experiment info will be displayed.
+    
     verbose: Optimizer verbosity.
     An integer that controls how verbose the optimizer will be when queuing new experiments.
     verbose=0 will display no messages. verbose=1 will display messages about the queued experiments.
@@ -875,6 +892,7 @@ class GraphicalOptimizer:
                  createGUI=True,
                  concurrentFunction: Callable = None,
                  completionFunction: Callable = None,
+                 dashboard_url: str = None,
                  verbose=0):
 
         self.ModelFunction = ModelFunction
@@ -890,6 +908,7 @@ class GraphicalOptimizer:
         self.seed = seed
         self.concurrentFunction = concurrentFunction
         self.completionFunction = completionFunction
+        self.dashboard_url = dashboard_url
         self.verbose=verbose
 
         self.results = None
@@ -951,7 +970,7 @@ class GraphicalOptimizer:
 
         bayReg = _EnhancedBayesianSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath, self._id),
+                             self.performanceParameter, self.dashboard_url, self.tempPath, self._id),
             hyperparameters,
             random_state=self.seed,
             verbose=self.verbose,
@@ -983,7 +1002,7 @@ class GraphicalOptimizer:
 
         grid = _EnhancedGridSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath, self._id),
+                             self.performanceParameter, self.dashboard_url, self.tempPath, self._id),
             hyperparameters,
             verbose=self.verbose,
             cv=self.crossValidation,
@@ -1022,7 +1041,7 @@ class GraphicalOptimizer:
 
         randomSearch = _EnhancedRandomSearchCV(
             WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.tempPath, self._id),
+                             self.performanceParameter, self.dashboard_url, self.tempPath, self._id),
             hyperparameters,
             random_state=self.seed,
             verbose=self.verbose,

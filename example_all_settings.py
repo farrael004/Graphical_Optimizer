@@ -1,4 +1,4 @@
-import time
+import sys
 
 import pandas as pd
 import numpy as np
@@ -30,10 +30,10 @@ X_train = sc.fit_transform(X_train)  # Create standardization and apply to train
 X_test = sc.transform(X_test)  # Apply created standardization to new data
 X_val = sc.transform(X_val)  # Apply created standardization to new data
 
-pca = PCA(n_components=0.9, svd_solver='full')
-X_train = pca.fit_transform(X_train)  # Create PCA and apply to train data
-X_test = pca.transform(X_test)  # Apply created PCA to new data
-X_val = pca.transform(X_val)  # Apply created normalization to new data
+#pca = PCA(n_components=0.9, svd_solver='full')
+#X_train = pca.fit_transform(X_train)  # Create PCA and apply to train data
+#X_test = pca.transform(X_test)  # Apply created PCA to new data
+#X_val = pca.transform(X_val)  # Apply created normalization to new data
 
 
 # Creating model, prediction and performance functions
@@ -47,9 +47,8 @@ def modelFunction(params, X_train, y_train):
                                     random_state=42)
 
     model = gbr.fit(X_train, y_train)
-
+    
     train_score = {"Train loss": [model.train_score_.tolist()[:1000]], "Test loss": [model.train_score_.tolist()[:1000]]}
-
     return model, train_score
 
 
@@ -108,8 +107,14 @@ def runMeAfterOptimizing(opt: GraphicalOptimizer):
     print(opt.results.best_score_)
     print("Best combination of hyperparameters are:")
     print(opt.results.best_params_)
+    df.to_json('sample_data.pkl')
     
 
+# Dashboard API
+if len(sys.argv) > 1:
+    dashboard_url = sys.argv[1]
+else:
+    dashboard_url = None
 
 # Performing optimization
 opt = GraphicalOptimizer(ModelFunction=modelFunction,
@@ -125,6 +130,7 @@ opt = GraphicalOptimizer(ModelFunction=modelFunction,
                          createGUI=True,
                          concurrentFunction=runMeWhileOptimizing,
                          completionFunction=runMeAfterOptimizing,
+                         dashboard_url=dashboard_url,
                          verbose=1)
 
 opt.fit(X_train, y_train)
