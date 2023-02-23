@@ -89,7 +89,7 @@ with col1:
 
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_selection(selection_mode='multiple', use_checkbox=True, groupSelectsChildren=True,
-                           groupSelectsFiltered=True)
+                           groupSelectsFiltered=True, pre_selected_rows=[0])
     gb.configure_grid_options(domLayout='normal')
     gridOptions = gb.build()
 
@@ -114,7 +114,9 @@ with col2:
     options.append('index_column')
     # st.write(options)
 
-    chart_data = selected_df.loc[:, options]
+    chart_data = df.loc[:, options]
+    if not selected_df.empty:
+        chart_data = selected_df.loc[:, options]
 
     # chart_data = df.loc[:, options].assign(source=0)
     # if not selected_df.empty:
