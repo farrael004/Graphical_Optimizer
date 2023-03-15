@@ -2,13 +2,12 @@ import sys
 import os
 import json
 import numpy as np
-import requests
 from warnings import warn
 import pandas as pd
 import streamlit as st
 import altair as alt
 
-from st_aggrid import GridOptionsBuilder, AgGrid, GridUpdateMode, DataReturnMode, JsCode
+from st_aggrid import GridOptionsBuilder, AgGrid
 
 st.set_page_config(layout="wide")
 
@@ -51,15 +50,6 @@ def retrieve_experiments(df):
 
     return old_method(df)
 
-    # try:
-    #    res = requests.get(api_url + '/api/data')
-    #    res.raise_for_status()
-    # except Exception as e:
-    #    st.error(e)
-    #    st.stop()
-
-    # return pd.read_json(res.content.decode("utf-8"))
-
 
 def load_data():
     if 'data' not in st.session_state:
@@ -72,24 +62,18 @@ df = load_data()
 if df.empty: st.stop()
 
 col1, col2 = st.columns(2)
+cht_mark = 1
 
 with col1:
     st.header('Results of the experiment: ')
-    # st.dataframe(df)
-    # performance_parameter = st.selectbox('Performance parameter', df.columns)
-    # min_or_max = st.radio('Minimize or Maximize', ['Minimize', 'Maximize'])
-    # if min_or_max == 'Maximize':
-    #     best_score = df[performance_parameter].max()
-    # else:
-    #     best_score = df[performance_parameter].min()
-    # st.caption('Best performance is: ')
-    # st.write(best_score)
-    # st.caption('Combination of hyperparameters for this is: ')
-    # st.write(opt.results.best_params_)
+
+    chart_types = ['circle', 'point', 'square', 'tick']
+    cht_mark = st.selectbox('Which type of chart do you want?', chart_types, 1)
 
     gb = GridOptionsBuilder.from_dataframe(df)
     gb.configure_selection(selection_mode='multiple', use_checkbox=True, groupSelectsChildren=True,
                            groupSelectsFiltered=True, pre_selected_rows=[0])
+    gb.configure_column(df.columns[0], headerCheckboxSelection=True)
     gb.configure_grid_options(domLayout='normal')
     gridOptions = gb.build()
 
@@ -114,44 +98,17 @@ with col2:
     options.append('index_column')
     # st.write(options)
 
-    chart_data = df.loc[:, options]
+    chart_data = pd.DataFrame(columns=options)
     if not selected_df.empty:
         chart_data = selected_df.loc[:, options]
 
-    # chart_data = df.loc[:, options].assign(source=0)
-    # if not selected_df.empty:
-    #     selected_data = selected_df.loc[:, options].assign(source='selection')
-    #     chart_data = pd.concat([chart_data, selected_data])
-
-    # chart_data = pd.melt(chart_data, id_vars=options[0], var_name="metric", value_name="score")
-    # chart_data = pd.melt(chart_data, id_vars=['Adjusted R^2 Score'], var_name="metric", value_name="score")
-    # st.dataframe(chart_data)
-
     chart_data = pd.melt(chart_data, id_vars=['index_column'], var_name="metric", value_name="score")
 
-    # chart = alt.Chart(data=chart_data).mark_bar().encode(
-    #     x=alt.X("metric:O"),
-    #     y=alt.Y("mean(score):Q", stack=False),
-    #     # color=alt.Color('source:N', scale=alt.Scale(domain=['selection'])),
-    # )
-    #
-    # st.altair_chart(chart, use_container_width=True)
-
-    chart = alt.Chart(data=chart_data).mark_point().encode(
+    chart = alt.Chart(data=chart_data, mark=cht_mark).encode(
         x='metric',
         y='score',
-        tooltip = ['metric', 'score', 'index_column'],
+        tooltip=['metric', 'score', 'index_column'],
         color=alt.Color('metric:N'),
     ).interactive()
 
     st.altair_chart(chart, use_container_width=True)
-
-    # with st.form('my_form'):
-    #     options = st.multiselect(
-    #         'Which columns do you want in the plot?',
-    #         df.columns.to_list(),
-    #         ['Adjusted R^2 Score']
-    #     )
-    #     submitted = st.form_submit_button('Submit')
-    #     if submitted:
-    #         st.line_chart(df, y=options)
