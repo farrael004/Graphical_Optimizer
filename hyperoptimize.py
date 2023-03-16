@@ -726,6 +726,8 @@ def print_status(self):
     if self.url == None: return
     
     try:
+        results = {'data': results, 'id': self._id}
+        json_object = json.dumps(results, indent=4)
         res = requests.post(self.url + '/api/data', json_object)
         res.raise_for_status()
     except Exception as e:

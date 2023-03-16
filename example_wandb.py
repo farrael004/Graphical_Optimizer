@@ -6,12 +6,13 @@ import numpy as np
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
 
 from sklearn.ensemble import GradientBoostingRegressor
 
 from hyperoptimize import GraphicalOptimizer
-from hyperoptimize import App
+
+import wandb
+
 
 # Loading data
 
@@ -30,14 +31,24 @@ X_train = sc.fit_transform(X_train)  # Create standardization and apply to train
 X_test = sc.transform(X_test)  # Apply created standardization to new data
 X_val = sc.transform(X_val)  # Apply created standardization to new data
 
-#pca = PCA(n_components=0.9, svd_solver='full')
-#X_train = pca.fit_transform(X_train)  # Create PCA and apply to train data
-#X_test = pca.transform(X_test)  # Apply created PCA to new data
-#X_val = pca.transform(X_val)  # Apply created normalization to new data
-
-
 # Creating model, prediction and performance functions
 def modelFunction(params, X_train, y_train):
+    
+    # start a new wandb run to track this script
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="my-project",
+        
+        # track hyperparameters and run metadata
+        config={
+            "n_estimators": params['n_estimators'],
+            "learning_rate": params['learning_rate'],
+            "max_depth": params['max_depth'],
+            "max_features": params['max_features'],
+            "min_samples_leaf": params['min_samples_leaf']
+        }
+    )
+    
     gbr = GradientBoostingRegressor(n_estimators=params['n_estimators'],
                                     learning_rate=params['learning_rate'],
                                     max_depth=params['max_depth'],
@@ -49,6 +60,15 @@ def modelFunction(params, X_train, y_train):
     model = gbr.fit(X_train, y_train)
     
     train_score = {"Train loss": [model.train_score_.tolist()[:1000]], "Test loss": [model.train_score_.tolist()[:1000]]}
+    
+    df = pd.DataFrame({
+        "Epochs": [i for i in range(1000)],
+        "Train loss": model.train_score_.tolist()[:1000]
+    })
+    
+    table = wandb.Table(data=df)
+    wandb.log({"Train loss" : wandb.plot.line(table, "Epochs", "Train loss",
+            title="Train loss")})
     return model, train_score
 
 
@@ -68,6 +88,7 @@ def performanceFunction(y_test, y_pred):
                      "Root Mean Squared Error (RMSE)": model_rmse,
                      "Adjusted R^2 Score": model_r2}
 
+    wandb.log(model_results)
     return model_results
 
 
