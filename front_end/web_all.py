@@ -77,13 +77,13 @@ with col1:
     gb.configure_grid_options(domLayout='normal')
     gridOptions = gb.build()
 
+    df['index_column'] = df.index
+
     grid_response = AgGrid(df, gridOptions=gridOptions)
 
     selected = grid_response['selected_rows']
     # st.write(grid_response['selected_rows'])
     selected_df = pd.DataFrame(selected)
-
-    df['index_column'] = df.index
 
 with col2:
     st.header('Plot from the experiment: ')
@@ -92,8 +92,42 @@ with col2:
     options = st.multiselect(
         'Which columns do you want in the plot?',
         df.select_dtypes(include=np.number).columns.tolist(),
-        ['Adjusted R^2 Score']
+        ['Adjusted R^2 Score'],
+        max_selections=3
     )
+
+    multi_value = st.checkbox('Display the Test Loss parameter values over the runs?')
+    df1 = df.copy(deep=True)
+    df1 = df1[['Train loss', 'Test loss']]
+
+    df1_total = pd.DataFrame()
+
+    for i in range(df1.shape[0]):
+
+        df1_test_expand = df1.loc[i, ['Test loss']].apply(pd.Series)
+
+        df1_test_transpose = df1_test_expand.T
+        df1_test_transpose.rename(columns={'Test loss': 'Score'}, inplace=True)
+        df1_test_transpose['Iteration'] = i
+        df1_test_transpose['Run Number'] = df1_test_transpose.index
+
+        df1_total = pd.concat([df1_total, df1_test_transpose], ignore_index=True)
+
+    # st.write(df1_total)
+    df1_display = pd.DataFrame(columns=['Score', 'Iteration', 'Run Number'])
+
+    if not selected_df.empty:
+        indices = list(selected_df['index_column'])
+        df1_display = df1_total[df1_total['Iteration'].isin(indices)]
+
+    if multi_value:
+
+        c1 = alt.Chart(df1_display).mark_line().encode(
+            x='Run Number:Q',
+            y='Score:Q',
+            color='Iteration:N'
+        )
+        st.altair_chart(c1, use_container_width=True)
 
     options.append('index_column')
     # st.write(options)
