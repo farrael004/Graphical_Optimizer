@@ -4,6 +4,7 @@ import random
 import string
 import requests
 import time
+import uuid
 from warnings import warn
 
 from time import perf_counter
@@ -709,10 +710,10 @@ class _EnhancedRandomSearchCV(_EnhancedBaseSearchCV):
 def write_experiment_to_file(self, json_object):
     """Writes an experiment result in json format to a file"""
     
-    tempfile = self._id + ''.join(random.choice(string.ascii_letters) for i in range(10))
-    filePath = os.path.join(self.tempPath, tempfile)
+    tempfile = self.experiment_id + str(uuid.uuid1())
+    file_path = os.path.join(self.temp_path, tempfile)
 
-    with open(filePath + ".json", "w") as outfile:
+    with open(file_path + ".json", "w") as outfile:
         outfile.write(json_object)
 
 
@@ -726,7 +727,7 @@ def print_status(self):
     if self.url == None: return
     
     try:
-        results = {'data': results, 'id': self._id}
+        results = {'data': results, 'id': self.experiment_id}
         json_object = json.dumps(results, indent=4)
         res = requests.post(self.url + '/api/data', json_object)
         res.raise_for_status()
@@ -737,33 +738,33 @@ def print_status(self):
 # Custom Estimator wrapper
 
 class WrapperEstimator(BaseEstimator):
-    """A class to wrap to create a sklearn estimator using the model, prediction and
+    """A class to wrap and create a sklearn estimator using the model, prediction and
     performance functions defined in the GraphicalOptimizer object."""
     
-    def __init__(self, ModelFunction, PredictionFunction, PerformanceFunction, performanceParameter, url, tempPath, _id):
-        self.ModelFunction = ModelFunction
-        self.PredictionFunction = PredictionFunction
-        self.PerformanceFunction = PerformanceFunction
-        self.performanceParameter = performanceParameter
+    def __init__(self, model_function, prediction_function, performance_function, performance_parameter, url, temp_path, experiment_id):
+        self.model_function = model_function
+        self.prediction_function = prediction_function
+        self.performance_function = performance_function
+        self.performance_parameter = performance_parameter
         self.url = url
-        self.tempPath = tempPath
-        self._id = _id
+        self.temp_path = temp_path
+        self.experiment_id = experiment_id
 
-        self.midTrainingPerformance = {}
+        self.mid_training_performance = {}
 
     def fit(self, X, y):
-        modelTimerStart = perf_counter()
+        model_timer_start = perf_counter()
 
-        modelFunctionOutput = self.ModelFunction(self.params, X, y)
+        model_function_output = self.model_function(self.params, X, y)
 
-        modelTimerEnd = perf_counter()
+        model_timerEnd = perf_counter()
 
-        if type(modelFunctionOutput) is tuple:
-            self.model, self.midTrainingPerformance = modelFunctionOutput
+        if type(model_function_output) is tuple:
+            self.model, self.mid_training_performance = model_function_output
         else:
-            self.model = modelFunctionOutput
+            self.model = model_function_output
 
-        self.modelTimer = modelTimerEnd - modelTimerStart
+        self.modelTimer = model_timerEnd - model_timer_start
 
         self.is_fitted_ = True
 
@@ -771,25 +772,25 @@ class WrapperEstimator(BaseEstimator):
 
     def predict(self, X):
         check_is_fitted(self, 'is_fitted_')
-        prediction = self.PredictionFunction(self.model, X)
+        prediction = self.prediction_function(self.model, X)
         return prediction
 
     def score(self, X, y, sample_weight=None):
         y_pred = self.predict(X)
-        self.scores = self.PerformanceFunction(y, y_pred)
+        self.scores = self.performance_function(y, y_pred)
         self.scores["Training time"] = self.modelTimer
 
-        for k in self.midTrainingPerformance:
-            self.scores[k] = self.midTrainingPerformance[k]
+        for k in self.mid_training_performance:
+            self.scores[k] = self.mid_training_performance[k]
 
         try:
-            self.scores[self.performanceParameter]
+            self.scores[self.performance_parameter]
         except:
-            raise AttributeError(f'Could not find the chosen performance parameter "{self.performanceParameter}" in '
+            raise AttributeError(f'Could not find the chosen performance parameter "{self.performance_parameter}" in '
                                  'the dictionary of performance metrics. Check if the GraphicalOptimizer object has a '
-                                 'valid performanceParameter.')
+                                 'valid performance_parameter.')
         print_status(self)
-        return self.scores[self.performanceParameter]
+        return self.scores[self.performance_parameter]
 
     def set_params(self, **params):
         self.params = params
@@ -807,19 +808,19 @@ class GraphicalOptimizer:
     
     Parameters
     ----------
-    ModelFunction: Model training function.
+    model_function: Model training function.
     The function that implements the model that takes different hyperparameters for experimenting.
     This function is assumed to return the model so it can be used for making predictions and measuring
     its performance. Optionally, a second output for displaying mid-training performance can be included
     when returning the function. This second output must be a dictionary and must be able to be JSON
     serializable.
     
-    PredictionFunction: Prediction function.
+    prediction_function: Prediction function.
     The function takes the model function and input data to make a prediction.
     This function is assumed to return the prediction so it can be used for calculating the prediction
     performance.
     
-    PerformanceFunction: Performance calculation function.
+    performance_function: Performance calculation function.
     The function that takes a prediction by the model to compare its performance with labeled data.
     This function is assumed to return the scores in the type dictionary.
     hyperparameters
@@ -829,8 +830,8 @@ class GraphicalOptimizer:
     boundaries. Must take different forms when using bayesian search as opposed to using grid or random
     search.
     
-    performanceParameter: Main model's performance indicator.
-    A string that corresponds to which key of the ``PerformanceFunction``'s output to use as the model's
+    performance_parameter: Main model's performance indicator.
+    A string that corresponds to which key of the ``performance_function``'s output to use as the model's
     score. This setting is important when performing Bayesian optimization as it determines which metric
     will be MAXIMIZED.
     
@@ -839,20 +840,20 @@ class GraphicalOptimizer:
     will iterate through all possible hyperparameter combinations. ``random`` will choose a random
     selection of possible combinations up to the maximum number of combinations.
     
-    maxNumCombinatios: Maximum number of combinations.
+    max_num_combinatios: Maximum number of combinations.
     An integer that determines how many hyperparameter combinations to search for. This argument only
     affects random and bayesian search. Grid search will always try all hyperparameter combinations. The
-    total number of experiments that the optimizer will run is ``maxNumCombinatios * crossValidation``.
+    total number of experiments that the optimizer will run is ``max_num_combinatios * cross_validation``.
     
-    crossValidation: Number of cross-validation folds.
+    cross_validation: Number of cross-validation folds.
     An integer that determines how many times the dataset will be split for performing cross-validation on
     each hyperparameter combination.
     
-    maxNumOfParallelProcesses: Number of experiments to run in parallel.
+    max_num_of_parallel_processes: Number of experiments to run in parallel.
     This integer determines how many parallel processes will be created for training multiple experiments
     at the same time. -1 will create the maximum possible number of parallel processes.
     
-    parallelCombinations: Number of simultaneous combinations to be tested.
+    parallel_combinations: Number of simultaneous combinations to be tested.
     This setting only affects bayesian search. This integer determines how many parallel combinations can
     be tested in bayesian search. If many combinations are tested simultaneously, the bayesian algorithm
     may perform worse than if it tested sequentially each combination.
@@ -860,19 +861,27 @@ class GraphicalOptimizer:
     seed: Seed for cross-validation.
     An integer for determining the cross-validation random state.
     
-    createGUI: Determines whether GUI should be created or not.
+    create_GUI: Determines whether GUI should be created or not.
     A boolean for allowing the App object to be created. If True, the optimizer window will be created. If
     False, the GUI will not be instantiated. The optimizer will function the same way in the background
     regardless of the presence of the GUI.
     
-    concurrentFunction: A function that runs simultaneously to the optimization process.
+    concurrent_function: A function that runs simultaneously to the optimization process.
     A function that will be called on the same thread as the GUI whenever an experiment completes. 
     
-    completionFunction: A function that runs after the hyperparameter search is over.
+    completion_function: A function that runs after the hyperparameter search is over.
     A function that will be called as soon as all experiments are completed. This can be used for code to run
     parallel to the GUI when the hyperparameter search completes.
     
     dashboard_url: A string that directs to a remote dashboard where the experiment info will be displayed.
+    
+    temp_path: Temporary path where experiment files will be written, read, and deleted from. In case the
+    optimization process stops and leaves lingering temp files, they will remain indefinetly in this path until
+    they are moved or deleted manually. This is to ensure that you can retrieve experiment results that have
+    been completed but not recovered by the optimizer.
+    
+    experiment_id: Universal Unique Identifier for your experiment run. This will be the displayed name for the
+    experiment once it is saved to a database.
     
     verbose: Optimizer verbosity.
     An integer that controls how verbose the optimizer will be when queuing new experiments.
@@ -880,56 +889,64 @@ class GraphicalOptimizer:
     """
 
     def __init__(self,
-                 ModelFunction: Callable,
-                 PredictionFunction: Callable,
-                 PerformanceFunction: Callable[..., dict],
+                 model_function: Callable,
+                 prediction_function: Callable,
+                 performance_function: Callable[..., dict],
                  hyperparameters: dict,
-                 performanceParameter: str,
+                 performance_parameter: str,
                  optimizer: str = 'bayesian',
-                 maxNumCombinations: int = 100,
-                 crossValidation: int = 30,
-                 maxNumOfParallelProcesses: int = -1,
-                 parallelCombinations: int = 3,
+                 max_num_combinations: int = 100,
+                 cross_validation: int = 30,
+                 max_num_of_parallel_processes: int = -1,
+                 parallel_combinations: int = 3,
                  seed=None,
-                 createGUI=True,
-                 concurrentFunction: Callable = None,
-                 completionFunction: Callable = None,
+                 create_GUI=True,
+                 concurrent_function: Callable = None,
+                 completion_function: Callable = None,
                  dashboard_url: str = None,
+                 temp_path: str = None,
+                 experiment_id: str = None,
                  verbose=0):
 
-        self.ModelFunction = ModelFunction
-        self.PredictionFunction = PredictionFunction
-        self.PerformanceFunction = PerformanceFunction
+        self.model_function = model_function
+        self.prediction_function = prediction_function
+        self.performance_function = performance_function
         self.hyperparameters = hyperparameters
-        self.performanceParameter = performanceParameter
+        self.performance_parameter = performance_parameter
         self.optimizer = optimizer
-        self.maxNumCombinations = maxNumCombinations
-        self.crossValidation = crossValidation
-        self.maxNumOfParallelProcesses = maxNumOfParallelProcesses
-        self.parallelCombinations = parallelCombinations
+        self.max_num_combinations = max_num_combinations
+        self.cross_validation = cross_validation
+        self.max_num_of_parallel_processes = max_num_of_parallel_processes
+        self.parallel_combinations = parallel_combinations
         self.seed = seed
-        self.concurrentFunction = concurrentFunction
-        self.completionFunction = completionFunction
+        self.concurrent_function = concurrent_function
+        self.completion_function = completion_function
         self.dashboard_url = dashboard_url
         self.verbose=verbose
 
         self.results = None
         self.df = pd.DataFrame()
-        self.tempPath = os.path.join(os.getcwd(), "temp") # Folder to which the experiment results will be written to.
+        
+        if temp_path is None:
+            temp_path = os.path.join(os.getcwd(), "temp") 
+        
+        self.temp_path = temp_path # Folder to which the experiment results will be written to.
         
         self._isUpdatingTable = True
-        self._id = ''.join(
-            random.choice(string.ascii_letters)
-            for i in range(10)) # Used to tag the experiment results files created by this object.
+        if experiment_id is None:
+            experiment_id = str(uuid.uuid4())
+        
+        self.experiment_id = experiment_id # Used to tag the experiment results files created by this object.
 
+        # Delete tempfolder if it exists then create a new one
         try:
-            # shutil.rmtree(self.tempPath)
+            # shutil.rmtree(self.temp_path)
             pass
         except FileNotFoundError:
             pass
-        os.makedirs(self.tempPath, exist_ok=True)
-        if createGUI:
-            self.app = App(self, concurrentFunction=self.concurrentFunction)
+        os.makedirs(self.temp_path, exist_ok=True)
+        if create_GUI:
+            self.app = App(self, concurrent_function=self.concurrent_function)
         else:
             t = threading.Thread(target=self._update_results)
             t.start()
@@ -938,7 +955,7 @@ class GraphicalOptimizer:
 
     ## Bayesian
 
-    def BayesianOpt(self, X_train, y_train):
+    def bayesian_opt(self, X_train, y_train):
         """Function used to perform bayesian search.
 
         Args:
@@ -971,24 +988,24 @@ class GraphicalOptimizer:
                 hyperparameters[k] = Integer(v[0], v[1])
 
         bayReg = _EnhancedBayesianSearchCV(
-            WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.dashboard_url, self.tempPath, self._id),
+            WrapperEstimator(self.model_function, self.prediction_function, self.performance_function,
+                             self.performance_parameter, self.dashboard_url, self.temp_path, self.experiment_id),
             hyperparameters,
             random_state=self.seed,
             verbose=self.verbose,
-            n_iter=self.maxNumCombinations,
-            cv=self.crossValidation,
-            n_jobs=self.maxNumOfParallelProcesses,
-            n_points=self.parallelCombinations
+            n_iter=self.max_num_combinations,
+            cv=self.cross_validation,
+            n_jobs=self.max_num_of_parallel_processes,
+            n_points=self.parallel_combinations
         )
 
         self.results = bayReg.fit(X_train, y_train)
 
-        self._finalizeOptimization()
+        self._finalize_optimization()
 
     ## Grid
 
-    def GridOpt(self, X_train, y_train):
+    def grid_opt(self, X_train, y_train):
         """Function used to perform grid search.
 
         Args:
@@ -999,23 +1016,23 @@ class GraphicalOptimizer:
             that can be split for cross validation.
         """
         
-        hyperparameters = self._gridAndRandomHyperparameters()
-        self._checkNumberOfCombinations(hyperparameters)
+        hyperparameters = self._grid_and_random_hyperparameters()
+        self._check_number_of_combinations(hyperparameters)
 
         grid = _EnhancedGridSearchCV(
-            WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.dashboard_url, self.tempPath, self._id),
+            WrapperEstimator(self.model_function, self.prediction_function, self.performance_function,
+                             self.performance_parameter, self.dashboard_url, self.temp_path, self.experiment_id),
             hyperparameters,
             verbose=self.verbose,
-            cv=self.crossValidation,
-            n_jobs=self.maxNumOfParallelProcesses,
+            cv=self.cross_validation,
+            n_jobs=self.max_num_of_parallel_processes,
         )
 
         self.results = grid.fit(X_train, y_train)
 
-        self._finalizeOptimization()
+        self._finalize_optimization()
 
-    def _checkNumberOfCombinations(self, hyperparameters):
+    def _check_number_of_combinations(self, hyperparameters):
         items = 1
         for k in hyperparameters:
             items *= len(hyperparameters[k])
@@ -1028,7 +1045,7 @@ class GraphicalOptimizer:
 
     ## Random
 
-    def RandomOpt(self, X_train, y_train):
+    def random_opt(self, X_train, y_train):
         """Function used to perform random search.
 
         Args:
@@ -1039,24 +1056,24 @@ class GraphicalOptimizer:
             that can be split for cross validation.
         """
         
-        hyperparameters = self._gridAndRandomHyperparameters()
+        hyperparameters = self._grid_and_random_hyperparameters()
 
         randomSearch = _EnhancedRandomSearchCV(
-            WrapperEstimator(self.ModelFunction, self.PredictionFunction, self.PerformanceFunction,
-                             self.performanceParameter, self.dashboard_url, self.tempPath, self._id),
+            WrapperEstimator(self.model_function, self.prediction_function, self.performance_function,
+                             self.performance_parameter, self.dashboard_url, self.temp_path, self.experiment_id),
             hyperparameters,
             random_state=self.seed,
             verbose=self.verbose,
-            n_iter=self.maxNumCombinations,
-            cv=self.crossValidation,
-            n_jobs=self.maxNumOfParallelProcesses,
+            n_iter=self.max_num_combinations,
+            cv=self.cross_validation,
+            n_jobs=self.max_num_of_parallel_processes,
         )
 
         self.results = randomSearch.fit(X_train, y_train)
 
-        self._finalizeOptimization()
+        self._finalize_optimization()
 
-    def _gridAndRandomHyperparameters(self):
+    def _grid_and_random_hyperparameters(self):
         hyperparameters = {}
         for k in self.hyperparameters:
             v = self.hyperparameters[k]
@@ -1076,12 +1093,12 @@ class GraphicalOptimizer:
         return hyperparameters
 
     def _retrieve_experiments(self):
-        """Function that writes to disk experiment results."""
+        """Function that writes experiment results to disk."""
         
         try:
-            for filename in os.listdir(self.tempPath):
-                tempfile = os.path.join(self.tempPath, filename)
-                if filename[:10] != self._id: continue  # check if file originates from this optimization session
+            for filename in os.listdir(self.temp_path):
+                tempfile = os.path.join(self.temp_path, filename)
+                if filename[:len(self.experiment_id)] != self.experiment_id: continue  # check if file originates from this optimization session
 
                 with open(tempfile, 'r') as openfile:
                     try:
@@ -1091,15 +1108,15 @@ class GraphicalOptimizer:
                     else:
                         results = pd.DataFrame(json_object, index=[0])
                         self.df = pd.concat([self.df, results], ignore_index=True, axis=0)
-                        if self.concurrentFunction: self.concurrentFunction(self)
+                        if self.concurrent_function: self.concurrent_function(self)
                 try:
                     os.remove(tempfile)
                 except:
-                    warn(f'Could not remove the temporary file {filename} from {self.tempPath}')
+                    warn(f'Could not remove the temporary file {filename} from {self.temp_path}')
 
         except FileNotFoundError:
             if self._isUpdatingTable:
-                raise FileNotFoundError(f"temp folder at {self.tempPath} not found.")
+                raise FileNotFoundError(f"temp folder at {self.temp_path} not found.")
             pass
 
     def _update_results(self):
@@ -1111,7 +1128,7 @@ class GraphicalOptimizer:
         """Used to start the optimization process by choosing which method to call.
         This function requires the "optimizer" attribute to be specified and can be
         substituted by the direct method that you would wish to use by doing
-        ``GraphicalOptimizer.RandomOpt(X_train, y_train)`` for example.
+        ``GraphicalOptimizer.random_opt(X_train, y_train)`` for example.
 
         Args:
             X_train (Any type): Training dataset to be used by the model function.
@@ -1123,15 +1140,15 @@ class GraphicalOptimizer:
         """
         match self.optimizer:
             case "bayesian":
-                self.BayesianOpt(X_train, y_train)
+                self.bayesian_opt(X_train, y_train)
             case "grid":
-                self.GridOpt(X_train, y_train)
+                self.grid_opt(X_train, y_train)
             case "random":
-                self.RandomOpt(X_train, y_train)
+                self.random_opt(X_train, y_train)
             case _:
                 raise ValueError("Choose between bayesian, grid, or random optimizers")
 
-    def _finalizeOptimization(self):
+    def _finalize_optimization(self):
         try:
             self.app.table.redraw()
         except:
@@ -1139,20 +1156,20 @@ class GraphicalOptimizer:
 
         self._isUpdatingTable = False
         if hasattr(self, 'app'):
-            self.app._isUpdatingTable = False
+            self.app._is_updating_table = False
             self.app.update_graphical_table()
             self.df = self.app.table.model.df
         else:
             self._retrieve_experiments()
 
         try:
-            # shutil.rmtree(self.tempPath)
+            # shutil.rmtree(self.temp_path)
             pass
         except FileNotFoundError:
             pass
 
-        if self.completionFunction is not None:
-            self.completionFunction(self)
+        if self.completion_function is not None:
+            self.completion_function(self)
 
 
 # Creating app class
@@ -1166,13 +1183,13 @@ class App(Frame, threading.Thread):
     simply call App.table.redraw().
     """
     
-    def __init__(self, optimizer: GraphicalOptimizer, parent=None, concurrentFunction: Callable = None):
-        self.tempPath = optimizer.tempPath
+    def __init__(self, optimizer: GraphicalOptimizer, parent=None, concurrent_function: Callable = None):
+        self.temp_path = optimizer.temp_path
         self.optmizer = optimizer
-        self._id = optimizer._id
+        self.experiment_id = optimizer.experiment_id
         self.parent = parent
-        self.concurrentFunction = concurrentFunction
-        self._isUpdatingTable = True
+        self.concurrent_function = concurrent_function
+        self._is_updating_table = True
         threading.Thread.__init__(self)
         self.start()
 
@@ -1184,7 +1201,7 @@ class App(Frame, threading.Thread):
         self.table.model.df = self.optmizer.df
 
         self.table.redraw()
-        if not self._isUpdatingTable: return
+        if not self._is_updating_table: return
         self.after(1000, self.update_graphical_table)
 
     def run(self):

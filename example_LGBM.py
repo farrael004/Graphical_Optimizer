@@ -35,7 +35,7 @@ X_val = pca.transform(X_val)  # Apply created normalization to new data
 
 
 # Creating model, prediction and performance functions
-def modelFunction(params, X_train, y_train):
+def model_function(params, X_train, y_train):
     lightgbm = LGBMRegressor(objective='regression',
                              num_leaves=params['num_leaves'],
                              learning_rate=params['learning_rate'],
@@ -55,12 +55,12 @@ def modelFunction(params, X_train, y_train):
     return model
 
 
-def predictionFunction(model, X):
+def prediction_function(model, X):
     y_pred = model.predict(X)
     return y_pred
 
 
-def performanceFunction(y_test, y_pred):
+def performance_function(y_test, y_pred):
     model_mae = mean_absolute_error(y_test, y_pred)
     model_mse = mean_squared_error(y_test, y_pred)
     model_rmse = np.sqrt(mean_squared_error(y_test, y_pred))
@@ -88,34 +88,34 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 8000, 1000),  # E
 
 
 # Creating functions that runs after and while the optimization runs.
-def runMeWhileOptimizing(opt: GraphicalOptimizer):
+def run_me_while_optimizing(opt: GraphicalOptimizer):
     # print(opt.df)
     # opt.app.after(1000, opt.app.concurrentFunction(opt))
     return
 
 
-def runMeAfterOptimizing(opt: GraphicalOptimizer):
+def run_me_after_optimizing(opt: GraphicalOptimizer):
     df = opt.df
-    bestIndex = df["Adjusted R^2 Score"].idxmax()
-    bestParams = df.iloc[bestIndex]
+    best_index = df["Adjusted R^2 Score"].idxmax()
+    best_params = df.iloc[best_index]
     print("Finished optimizing")
-    print(f'Best performance: {bestParams["Adjusted R^2 Score"]}')  # or opt.results.best_score_
+    print(f'Best performance: {best_params["Adjusted R^2 Score"]}')  # or opt.results.best_score_
     print("Best combination of hyperparameters are:")
-    print(bestParams[6:])  # or opt.results.best_params_
+    print(best_params[6:])  # or opt.results.best_params_
 
 # Performing optimization
-opt = GraphicalOptimizer(ModelFunction=modelFunction,
-                         PredictionFunction=predictionFunction,
-                         PerformanceFunction=performanceFunction,
-                         performanceParameter="Adjusted R^2 Score",
+opt = GraphicalOptimizer(model_function=model_function,
+                         prediction_function=prediction_function,
+                         performance_function=performance_function,
+                         performance_parameter="Adjusted R^2 Score",
                          hyperparameters=hyperparameters_bayesian,
                          optimizer="bayesian",
-                         maxNumCombinations=20,
-                         crossValidation=2,
-                         maxNumOfParallelProcesses=-1,
-                         parallelCombinations=5,
-                         createGUI=True,
-                         concurrentFunction=runMeWhileOptimizing,
-                         completionFunction=runMeAfterOptimizing)
+                         max_num_combinations=20,
+                         cross_validation=2,
+                         max_num_of_parallel_processes=-1,
+                         parallel_combinations=5,
+                         create_GUI=True,
+                         concurrent_function=run_me_while_optimizing,
+                         completion_function=run_me_after_optimizing)
 
 opt.fit(X_train, y_train)

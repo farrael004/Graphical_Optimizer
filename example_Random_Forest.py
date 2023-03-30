@@ -70,15 +70,15 @@ hyperparameters_grid_and_random = {'n_estimators': range(200, 2000, 100),  # Ext
                                    'min_samples_split': [2, 5, 10], }  # Extensive list of possibilities
 
 # Performing optimization
-opt = GraphicalOptimizer(ModelFunction=model_function,
-                         PredictionFunction=prediction_function,
-                         PerformanceFunction=performance_function,
-                         performanceParameter="Adjusted R^2 Score",
+opt = GraphicalOptimizer(model_function=model_function,
+                         prediction_function=prediction_function,
+                         performance_function=performance_function,
+                         performance_parameter="Adjusted R^2 Score",
                          hyperparameters=hyperparameters_bayesian,
                          optimizer="bayesian",
-                         maxNumCombinations=5,
-                         crossValidation=2,
-                         maxNumOfParallelProcesses=-1,
-                         parallelCombinations=2)
+                         max_num_combinations=5,
+                         cross_validation=2,
+                         max_num_of_parallel_processes=-1,
+                         parallel_combinations=2)
 
 opt.fit(X, y)

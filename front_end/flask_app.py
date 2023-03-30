@@ -19,9 +19,6 @@ tempPath = os.path.join(os.path.dirname(__file__), 'temp')
 
 engine = create_engine("sqlite:///data.db")
 
-#global experiments
-#experiments = pd.DataFrame()
-
 
 def convert_to_list(x):
     new_list = x.split('-|-|-')
@@ -48,9 +45,6 @@ def insert_experiment(id, experiment_name, experiment: pd.DataFrame):
     
     conn.commit()
     conn.close()
-    #pd.DataFrame({'experiment_id': [id]}).to_sql('experiment_id', engine, if_exists="append", index=False)
-    #global experiments
-    #experiments = pd.concat([experiment], experiments)
 
 def get_experiment(id, experiment_name):
     query = f"SELECT * from {experiment_name}_{id}"
@@ -119,7 +113,6 @@ def receive_data():
     data = request.data.decode("utf-8")
     data = json.loads(data)
     # Process the data...
-    #write_experiment_to_file(data)
     insert_experiment(data['id'], 'experiment', pd.DataFrame(data['data']))
     
     # Return a response to the client
@@ -139,12 +132,7 @@ def write_experiment_to_file(json_object):
 
 # Find your ip and an open port
 def get_ip_and_open_port():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("", 0))
-    s.listen(1)
-    _port = s.getsockname()[1]
-    _port = 8910 # Hardcoded socket
-    s.close()
+    _port = 8910 # os.environ.get('PORT', 8910)
 
     hostname = socket.gethostname()
     _ip = socket.gethostbyname(hostname)
@@ -171,7 +159,7 @@ def active_dashboard():
 def start_dashboard(api_url):
     python_executable = sys.executable
     script_folder = os.path.dirname(__file__)
-    script_path = os.path.join(script_folder,'web_all.py')
+    script_path = os.path.join(script_folder,'streamlit_app.py')
     subprocess.Popen([python_executable, '-m', 'streamlit', 'run', script_path, api_url])
 
 

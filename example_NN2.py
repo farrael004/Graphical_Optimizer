@@ -96,7 +96,7 @@ def prediction_function(model, X):
     return y_pred
 
 
-def performanceFunction(y_test, y_pred):
+def performance_function(y_test, y_pred):
     results = {"Accuracy": 1}
 
     return results
@@ -107,16 +107,16 @@ hyperparameters = {"epochs": [5, 10]}
 
 
 # Performing optimization
-opt = GraphicalOptimizer(ModelFunction=model_function,
-                         PredictionFunction=prediction_function,
-                         PerformanceFunction=performanceFunction,
-                         performanceParameter="Accuracy",
+opt = GraphicalOptimizer(model_function=model_function,
+                         prediction_function=prediction_function,
+                         performance_function=performance_function,
+                         performance_parameter="Accuracy",
                          hyperparameters=hyperparameters,
                          optimizer="random",
-                         maxNumCombinations=5,
-                         crossValidation=2,
-                         maxNumOfParallelProcesses=1,
-                         parallelCombinations=2,
-                         createGUI=True)
+                         max_num_combinations=5,
+                         cross_validation=2,
+                         max_num_of_parallel_processes=1,
+                         parallel_combinations=2,
+                         create_GUI=True)
 
 opt.fit(np.zeros(2), np.zeros(2))

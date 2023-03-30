@@ -28,7 +28,7 @@ plt.show()
 
 
 # Creating model, prediction and performance functions
-def modelFunction(params, X_train, y_train):
+def model_function(params, X_train, y_train):
     model = np.sin(3 * params['X']) + np.cos(2 * params['X']) - 2.2 * np.sin(3 * params['X']) - 2 * np.cos(
         3.4 * params['X'])
     model += np.sin(3 * params['Y']) + np.cos(2 * params['Y']) - 2.2 * np.sin(3 * params['Y']) - 2 * np.cos(
@@ -36,12 +36,12 @@ def modelFunction(params, X_train, y_train):
     return model
 
 
-def predictionFunction(model, X):
+def prediction_function(model, X):
     y_pred = model
     return y_pred
 
 
-def performanceFunction(y_test, y_pred):
+def performance_function(y_test, y_pred):
     return {"score": y_pred}
 
 
@@ -51,16 +51,16 @@ hyperparameters_bayesian = {'X': [-5.0, 5.0], 'Y': [-5.0, 5.0]}  # Upper and low
 hyperparameters_grid_and_random = {'X': np.linspace(-2, 2, 100).tolist()}  # Upper and lower bounds
 
 # Performing optimization
-opt = GraphicalOptimizer(ModelFunction=modelFunction,
-                         PredictionFunction=predictionFunction,
-                         PerformanceFunction=performanceFunction,
-                         performanceParameter="score",
+opt = GraphicalOptimizer(model_function=model_function,
+                         prediction_function=prediction_function,
+                         performance_function=performance_function,
+                         performance_parameter="score",
                          hyperparameters=hyperparameters_bayesian,
                          optimizer="bayesian",
-                         maxNumCombinations=60,
-                         crossValidation=2,
-                         maxNumOfParallelProcesses=-1,
-                         parallelCombinations=8,
+                         max_num_combinations=60,
+                         cross_validation=2,
+                         max_num_of_parallel_processes=-1,
+                         parallel_combinations=8,
                          seed=1)
 
 opt.fit(X, y)
