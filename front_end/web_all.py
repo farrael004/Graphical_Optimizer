@@ -89,60 +89,75 @@ with col2:
     st.header('Plot from the experiment: ')
     # st.write(df.columns.tolist())
 
+    l1 = df.select_dtypes(include=object).columns.tolist()
+    l1 = [x for x in l1 if type(df.loc[0, x]) is list]
+
+    list_options = st.multiselect(
+        'Which list type columns do you want in the plot?',
+        options=l1,
+        default=None,
+        max_selections=1
+    )
+
+    df1 = df.copy(deep=True)
+    df1_total = pd.DataFrame()
+
+    if list_options:
+        df1 = df1[list_options]
+
+        for i in range(df1.shape[0]):
+            df1_test_expand = df1.loc[i, list_options].apply(pd.Series)
+
+            df1_test_transpose = df1_test_expand.T
+            df1_test_transpose.rename(columns={list_options[0]: 'Score'}, inplace=True)
+            df1_test_transpose['Iteration'] = i
+            df1_test_transpose['Run Number'] = df1_test_transpose.index
+
+            df1_total = pd.concat([df1_total, df1_test_transpose], ignore_index=True)
+
+        df1_display = pd.DataFrame(columns=['Score', 'Iteration', 'Run Number'])
+
+        if not selected_df.empty:
+            indices = list(selected_df['index_column'])
+            df1_display = df1_total[df1_total['Iteration'].isin(indices)]
+
+        if df1_display['Score'].dtype == object:
+            c1 = alt.Chart(df1_display).mark_point().encode(
+                x='Run Number:Q',
+                y='Score:N',
+                color='Iteration:N'
+            ).interactive()
+            st.altair_chart(c1, use_container_width=True)
+        else:
+            c1 = alt.Chart(df1_display).mark_line().encode(
+                x='Run Number:Q',
+                y='Score:Q',
+                color='Iteration:N'
+            ).interactive()
+        st.altair_chart(c1, use_container_width=True)
+
     options = st.multiselect(
         'Which columns do you want in the plot?',
         df.select_dtypes(include=np.number).columns.tolist(),
-        ['Adjusted R^2 Score'],
+        default=None,
         max_selections=3
     )
 
-    multi_value = st.checkbox('Display the Test Loss parameter values over the runs?')
-    df1 = df.copy(deep=True)
-    df1 = df1[['Train loss', 'Test loss']]
+    if options:
+        options.append('index_column')
+        # st.write(options)
 
-    df1_total = pd.DataFrame()
+        chart_data = pd.DataFrame(columns=options)
+        if not selected_df.empty:
+            chart_data = selected_df.loc[:, options]
 
-    for i in range(df1.shape[0]):
+        chart_data = pd.melt(chart_data, id_vars=['index_column'], var_name="metric", value_name="score")
 
-        df1_test_expand = df1.loc[i, ['Test loss']].apply(pd.Series)
+        chart = alt.Chart(data=chart_data, mark=cht_mark).encode(
+            x='metric',
+            y='score',
+            tooltip=['metric', 'score', 'index_column'],
+            color=alt.Color('metric:N'),
+        ).interactive()
 
-        df1_test_transpose = df1_test_expand.T
-        df1_test_transpose.rename(columns={'Test loss': 'Score'}, inplace=True)
-        df1_test_transpose['Iteration'] = i
-        df1_test_transpose['Run Number'] = df1_test_transpose.index
-
-        df1_total = pd.concat([df1_total, df1_test_transpose], ignore_index=True)
-
-    # st.write(df1_total)
-    df1_display = pd.DataFrame(columns=['Score', 'Iteration', 'Run Number'])
-
-    if not selected_df.empty:
-        indices = list(selected_df['index_column'])
-        df1_display = df1_total[df1_total['Iteration'].isin(indices)]
-
-    if multi_value:
-
-        c1 = alt.Chart(df1_display).mark_line().encode(
-            x='Run Number:Q',
-            y='Score:Q',
-            color='Iteration:N'
-        )
-        st.altair_chart(c1, use_container_width=True)
-
-    options.append('index_column')
-    # st.write(options)
-
-    chart_data = pd.DataFrame(columns=options)
-    if not selected_df.empty:
-        chart_data = selected_df.loc[:, options]
-
-    chart_data = pd.melt(chart_data, id_vars=['index_column'], var_name="metric", value_name="score")
-
-    chart = alt.Chart(data=chart_data, mark=cht_mark).encode(
-        x='metric',
-        y='score',
-        tooltip=['metric', 'score', 'index_column'],
-        color=alt.Color('metric:N'),
-    ).interactive()
-
-    st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, use_container_width=True)
