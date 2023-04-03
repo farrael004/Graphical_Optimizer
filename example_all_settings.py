@@ -123,6 +123,7 @@ opt = GraphicalOptimizer(model_function=model_function,
                          performance_parameter="Adjusted R^2 Score",
                          hyperparameters=hyperparameters_bayesian,
                          optimizer="bayesian",
+<<<<<<< Updated upstream
                          max_num_combinations=5,
                          cross_validation=2,
                          max_num_of_parallel_processes=-1,
@@ -130,6 +131,15 @@ opt = GraphicalOptimizer(model_function=model_function,
                          create_GUI=False,
                          concurrent_function=runMeWhileOptimizing,
                          completion_function=runMeAfterOptimizing,
+=======
+                         maxNumCombinations=5,
+                         crossValidation=2,
+                         maxNumOfParallelProcesses=-1,
+                         parallelCombinations=2,
+                         createGUI=True,
+                         concurrentFunction=runMeWhileOptimizing,
+                         completionFunction=runMeAfterOptimizing,
+>>>>>>> Stashed changes
                          dashboard_url=dashboard_url,
                          verbose=1)
 
