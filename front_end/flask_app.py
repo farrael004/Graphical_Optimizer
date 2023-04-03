@@ -28,12 +28,13 @@ def convert_to_list(x):
 
 
 # Creating database functions
-def insert_experiment(id, experiment_name, experiment: pd.DataFrame):
+def insert_experiment(id, experiment: pd.DataFrame):
+    id = id.replace('-','')
     for column in experiment:
         if type(experiment[column][0]) == list:
             experiment[column] = '-|-|-'.join(str(num) for num in experiment[column][0])
 
-    experiment.to_sql(f"{experiment_name}_{id}", engine, if_exists="append", index=False)
+    experiment.to_sql(id, engine, if_exists="append", index=False)
     
     conn = sqlite3.connect('data.db')
     c = conn.cursor()
@@ -46,9 +47,12 @@ def insert_experiment(id, experiment_name, experiment: pd.DataFrame):
     conn.commit()
     conn.close()
 
-def get_experiment(id, experiment_name):
-    query = f"SELECT * from {experiment_name}_{id}"
-   
+def get_experiment(id):
+    if id is None: return pd.DataFrame()
+    
+    id = id.replace('-','')
+    query = f"SELECT * from {id}"
+    
     try: 
         df = pd.read_sql(query, engine)
     except OperationalError as e:
@@ -71,10 +75,11 @@ def get_all_experiments():
     
     return experiments
 
-def experiment_exists(id, experiment_name):
+def experiment_exists(id):
+    id = id.replace('-','')
     query = "SELECT name FROM sqlite_master WHERE type='table';"
     df = pd.read_sql_query(query, engine)
-    if f'{experiment_name}_{id}' in df['name'].values:
+    if id in df['name'].values:
         return True
     else:
         return False
@@ -103,7 +108,7 @@ def get_experiments():
 @app.route('/api/data', methods=['GET'])
 def get_data():
     id = request.args.get('id')
-    data_json = get_experiment(id, 'experiment').to_json()
+    data_json = get_experiment(id).to_json()
     return data_json
 
 
@@ -113,7 +118,7 @@ def receive_data():
     data = request.data.decode("utf-8")
     data = json.loads(data)
     # Process the data...
-    insert_experiment(data['id'], 'experiment', pd.DataFrame(data['data']))
+    insert_experiment(data['id'], pd.DataFrame(data['data']))
     
     # Return a response to the client
     return 'Success!'

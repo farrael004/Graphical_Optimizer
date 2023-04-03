@@ -88,20 +88,20 @@ hyperparameters_grid_and_random = {'n_estimators': range(5000, 6000, 100),  # Ex
 
 
 # Creating functions that runs after and while the optimization runs.
-def runMeWhileOptimizing(opt: GraphicalOptimizer):
+def run_me_while_optimizing(opt: GraphicalOptimizer):
     print('---------------------------')
     print('Experiment completed:')
     print(f'Adjusted R^2 Score: {opt.df.iloc[-1]["Adjusted R^2 Score"]}')
 
 
-def runMeAfterOptimizing(opt: GraphicalOptimizer):
+def run_me_after_optimizing(opt: GraphicalOptimizer):
     df = opt.df
-    bestIndex = df["Adjusted R^2 Score"].idxmax()
-    bestParams = df.iloc[bestIndex]
+    best_index = df["Adjusted R^2 Score"].idxmax()
+    best_params = df.iloc[best_index]
     print("Finished optimizing")
-    print(f'Best performance: {bestParams["Adjusted R^2 Score"]}')
+    print(f'Best performance: {best_params["Adjusted R^2 Score"]}')
     print("Best combination of hyperparameters are:")
-    print(bestParams[6:])
+    print(best_params[6:])
     print('---------------------------')
     print('Best performance:')
     print(opt.results.best_score_)
@@ -123,23 +123,13 @@ opt = GraphicalOptimizer(model_function=model_function,
                          performance_parameter="Adjusted R^2 Score",
                          hyperparameters=hyperparameters_bayesian,
                          optimizer="bayesian",
-<<<<<<< Updated upstream
                          max_num_combinations=5,
                          cross_validation=2,
                          max_num_of_parallel_processes=-1,
                          parallel_combinations=2,
                          create_GUI=False,
-                         concurrent_function=runMeWhileOptimizing,
-                         completion_function=runMeAfterOptimizing,
-=======
-                         maxNumCombinations=5,
-                         crossValidation=2,
-                         maxNumOfParallelProcesses=-1,
-                         parallelCombinations=2,
-                         createGUI=True,
-                         concurrentFunction=runMeWhileOptimizing,
-                         completionFunction=runMeAfterOptimizing,
->>>>>>> Stashed changes
+                         concurrent_function=run_me_while_optimizing,
+                         completion_function=run_me_after_optimizing,
                          dashboard_url=dashboard_url,
                          verbose=1)
 
