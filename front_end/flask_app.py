@@ -132,17 +132,7 @@ def write_experiment_to_file(json_object):
 
 # Find your ip and an open port
 def get_ip_and_open_port():
-<<<<<<< Updated upstream
     _port = 8910 # os.environ.get('PORT', 8910)
-
-=======
-    #s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #s.bind(("", 0))
-    #s.listen(1)
-    #_port = s.getsockname()[1]
-    #s.close()
-    _port = int(os.environ.get('PORT', 8910))
->>>>>>> Stashed changes
     hostname = socket.gethostname()
     _ip = socket.gethostbyname(hostname)
     #_ip = '0.0.0.0'
