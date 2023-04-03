@@ -81,7 +81,7 @@ cht_mark = 1
 with col1:
     st.header('Results of the experiment: ')
 
-    chart_types = ['circle', 'point', 'square', 'tick']
+    chart_types = ['circle', 'point', 'square', 'tick', 'bar']
     cht_mark = st.selectbox('Which type of chart do you want?', chart_types, 1)
 
     gb = GridOptionsBuilder.from_dataframe(df)
@@ -136,7 +136,7 @@ with col2:
             df1_display = df1_total[df1_total['Iteration'].isin(indices)]
 
         if df1_display['Score'].dtype == object:
-            c1 = alt.Chart(df1_display).mark_point().encode(
+            c1 = alt.Chart(df1_display).mark_text().encode(
                 x='Run Number:Q',
                 y='Score:N',
                 color='Iteration:N'
@@ -179,14 +179,14 @@ if y_axis and x_axis:
     if not selected_df.empty:
         chart_data = selected_df.loc[:, options]
 
-    chart = alt.Chart(chart_data).mark_point().encode(
+    chart = alt.Chart(data=chart_data, mark=cht_mark).encode(
         x=alt.X(x_axis, type='quantitative'),
         y=alt.Y(y_axis, type='quantitative'),
         tooltip=['metric', 'score', x_axis],
         color=alt.Color('metric:N'),
     ).interactive()
     
-    chart = alt.Chart(chart_data).mark_circle().encode(
+    chart = alt.Chart(data=chart_data, mark=cht_mark).encode(
         x=alt.X(x_axis, type='quantitative'),
         y=alt.Y(y_axis, type='quantitative'),
         tooltip=options,
