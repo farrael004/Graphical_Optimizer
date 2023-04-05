@@ -81,7 +81,7 @@ cht_mark = 1
 with col1:
     st.header('Results of the experiment: ')
 
-    chart_types = ['circle', 'point', 'square', 'tick', 'bar']
+    chart_types = ['circle', 'point', 'square', 'tick', 'bar', 'line']
     cht_mark = st.selectbox('Which type of chart do you want?', chart_types, 1)
 
     gb = GridOptionsBuilder.from_dataframe(df)
@@ -151,28 +151,25 @@ with col2:
         st.altair_chart(c1, use_container_width=True)
 
 col1, col2, col3 = st.columns(3)
+axis_list = df.select_dtypes(include=np.number).columns.tolist()
 y_axis = col1.selectbox(
     'Y axis',
-    df.select_dtypes(include=np.number).columns.tolist()
+    axis_list
 )
-
-x_axis_list = [item for item in df.select_dtypes(include=np.number).columns.tolist() if item != y_axis]
 
 x_axis = col2.selectbox(
     'X axis',
-    x_axis_list
+    axis_list
 )
-
-color_list = [item for item in x_axis_list if item != x_axis]
 
 color = col3.selectbox(
     'Color',
-    color_list
+    axis_list
 )
 if color is None:
         color = 'metric:N'
 
-if y_axis and x_axis:
+if y_axis and x_axis and x_axis != y_axis and y_axis != color and x_axis != color:
     options = [y_axis, x_axis, color]
 
     chart_data = pd.DataFrame(columns=options)
@@ -194,3 +191,5 @@ if y_axis and x_axis:
     ).interactive()
 
     st.altair_chart(chart, use_container_width=True)
+else:
+    st.warning("Please pick three different columns for the color, Y, and X axis.")
